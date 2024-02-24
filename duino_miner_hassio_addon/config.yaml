@@ -1,7 +1,7 @@
 
 name: "Duino coin miner"
 description: "Mine DUCO in Home Assistant"
-version: "1.1.2"
+version: "1.2.0"
 slug: "duco-miner"
 init: false
 arch:
@@ -12,11 +12,13 @@ arch:
 apparmor: true
 backup: hot
 tmpfs: true
-stage: deprecated
+stage: stable
 
 options:
+  threads_count: "1"
   username: "username"
   mining_key: "None"
 schema:
+  threads_count: str
   username: str
   mining_key: str

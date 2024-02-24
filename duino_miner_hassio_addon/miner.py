@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Duino-Coin HASSIO  Miner. Based on  MineCryptoOnWifiRouter by BastelPichi
- 
+
 
 import hashlib
 import os
@@ -11,7 +11,7 @@ import requests
 
 from sys import argv
 
-script, username, mining_key = argv
+script, idx, username, mining_key = argv
 
 
 soc = socket()
@@ -38,6 +38,7 @@ def fetch_pools():
 
 while True:
     try:
+        print(f"{current_time()}: Running Thread {idx}")
         print(f"{current_time()}: Searching for fastest connection to the server")
         try:
             NODE_ADDRESS, NODE_PORT = fetch_pools()
@@ -61,7 +62,7 @@ while True:
 
             # Receive work
             job = soc.recv(1024).decode().rstrip("\n")
-            # Split received data to job and difficulty 
+            # Split received data to job and difficulty
             job = job.split(",")
             difficulty = job[2]
 
