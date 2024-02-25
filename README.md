@@ -18,5 +18,4 @@ https://github.com/gfoiani/hassio-addons
 
 ## Addons
 
-* Duino coin miner (Deprecated)
-* Xmrig miner (not stable)
+* Duino coin miner
