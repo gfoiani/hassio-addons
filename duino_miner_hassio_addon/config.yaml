@@ -1,7 +1,7 @@
 
 name: "Duino coin miner"
 description: "Mine DUCO in Home Assistant"
-version: "1.2.0"
+version: "1.2.1"
 slug: "duco-miner"
 init: false
 arch:
