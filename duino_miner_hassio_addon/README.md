@@ -5,7 +5,7 @@ _____
 
 ## Based on [MineCryptoOnWifiRouter](https://github.com/BastelPichi/MineCryptoOnWifiRouter)
 
-- Duino single-thread coin miner runs in docker as a HASSIO addon
+- Duino multi-thread coin miner runs in docker as a HASSIO addon
 - Supported architectures:
   - amd64
   - armv7

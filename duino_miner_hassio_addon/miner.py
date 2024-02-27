@@ -10,7 +10,6 @@ import requests
 from enum import Enum
 import signal
 import sys
-import uuid
 
 stop_thread = False  # Flag to signal the thread to stop
 script, idx, username, mining_key = sys.argv
@@ -46,7 +45,7 @@ def fetch_pools():
       time.sleep(15)
 
 def mine(username, mining_key, index, soc):
-    identifier = uuid.uuid4()
+    identifier = socket.gethostname().split(".")[0]
     while not stop_thread:
       soc.send(bytes(f"JOB,{str(username)},LOW,{mining_key}", encoding="utf8"))
 
@@ -67,7 +66,7 @@ def mine(username, mining_key, index, soc):
           timeDifference = hashingStopTime - hashingStartTime
           hashrate = result / timeDifference
 
-          soc.send(bytes(f"{str(result)},{str(hashrate)},{SOFTWARE_NAME},{identifier}", encoding="utf8"))
+          soc.send(bytes(f"{str(result)},{str(hashrate)},{SOFTWARE_NAME},{identifier}-{idx}", encoding="utf8"))
 
           feedback = soc.recv(1024).decode().rstrip("\n")
 

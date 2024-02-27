@@ -1,4 +1,6 @@
-.python-version
+# Python
+**/.python-version
+**/venv
 
-venv
-logs
+# Rust
+**/target
