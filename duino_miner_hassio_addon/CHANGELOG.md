@@ -1,3 +1,7 @@
+# 1.2.2
+
+- Add miner identifier
+
 # 1.2.1
 
 - Minor code refactoring
