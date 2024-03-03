@@ -19,3 +19,11 @@ https://github.com/gfoiani/hassio-addons
 ## Addons
 
 * Duino coin miner
+
+## Local build
+
+docker build --platform=linux/amd64 --build-arg BUILD_FROM=python:3.12 -t duino-miner:latest
+
+## Local run
+
+docker run -d duino-miner --env .env --restart=no

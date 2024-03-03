@@ -4,15 +4,21 @@ FROM $BUILD_FROM
 # Install requirements for add-on
 RUN \
   apk add --no-cache \
-    python3 \
-    py3-pip
+  python3 \
+  py3-pip
 
 
-# Copy data for add-on
-COPY run.sh /
-COPY main.py /
-COPY miner.py /
+RUN mkdir -p /usr/src/app
 
-RUN chmod a+x /run.sh
+WORKDIR /usr/src/app
 
-CMD [ "/run.sh" ]
+# Copy application
+COPY ./run.sh /usr/src/app/
+COPY ./main.py /usr/src/app/
+COPY ./miner.py /usr/src/app/
+
+VOLUME /usr/src/app
+
+RUN chmod a+x /usr/src/app/run.sh
+
+CMD ["sh", "-c", "./run.sh"]

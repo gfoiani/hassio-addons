@@ -11,9 +11,11 @@ source ./venv/bin/activate
 echo "Installing requests . . ."
 pip3 install requests
 
-THREADS_COUNT=$(bashio::config 'threads_count')
-USERNAME=$(bashio::config 'username')
-MINING_KEY=$(bashio::config 'mining_key')
+if [[ $LOCAL_DEPOLY != "true" ]]; then
+  THREADS_COUNT=$(bashio::config 'threads_count')
+  USERNAME=$(bashio::config 'username')
+  MINING_KEY=$(bashio::config 'mining_key')
+fi
 
 echo "Username is: " $USERNAME
 echo "Mining key is: " $MINING_KEY
