@@ -1,3 +1,7 @@
+# 1.3.0
+
+- Add Fashhash algorithm
+
 # 1.2.2
 
 - Add miner identifier
