@@ -1,6 +1,6 @@
 export IMG_VERSION=$(git describe HEAD --always)
 export CONTAINER_NAME=duino-miner
-export BUILD_FROM=homeassistant/amd64-base:latest
+export BUILD_FROM=homeassistant/amd64-base:3.13
 
 docker build --platform=linux/amd64 --build-arg BUILD_FROM=${BUILD_FROM} -t ${CONTAINER_NAME}:${IMG_VERSION} .
 docker tag ${CONTAINER_NAME}:${IMG_VERSION} ${CONTAINER_NAME}:latest

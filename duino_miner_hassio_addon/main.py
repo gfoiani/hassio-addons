@@ -1,10 +1,10 @@
 import threading
 import subprocess
-
-from sys import argv
-
 import signal
 import sys
+
+from fasthash import Fasthash
+from sys import argv
 
 def signal_handler(sig, frame):
   print('Exiting main script')
@@ -12,18 +12,22 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-script, threads_count, username, mining_key = argv
+script, username, mining_key, efficiency, threads_count = argv
 
 MINER_SCRIPT = "miner.py"
 
-def run_script(script_name, thread_index, username, mining_key):
-  subprocess.run(["python3", script_name, thread_index, username, mining_key])
+def run_script(script_name, username, mining_key, efficiency, thread_index,):
+  subprocess.run(["python3", script_name, username, mining_key, efficiency, thread_index])
 
 if __name__ == "__main__":
+  # Load fasthash
+  Fasthash.load()
+  Fasthash.init()
+
   thread_list = []
 
   for idx in range(0, int(threads_count)):
-    thread = threading.Thread(target=run_script, args=(MINER_SCRIPT, str(idx + 1), username, mining_key))
+    thread = threading.Thread(target=run_script, args=(MINER_SCRIPT, username, mining_key, efficiency, str(idx + 1)))
     thread_list.append(thread)
 
   for thread in thread_list:

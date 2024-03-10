@@ -12,7 +12,7 @@ import signal
 import sys
 
 stop_thread = False  # Flag to signal the thread to stop
-script, idx, username, mining_key = sys.argv
+script, username, mining_key, efficiency, idx = sys.argv
 
 def signal_handler(sig, frame):
   global stop_thread
@@ -33,6 +33,24 @@ SOFTWARE_NAME = "HASSIO Miner"
 def current_time():
   return time.strftime("%H:%M:%S", time.localtime())
 
+def get_efficiency():
+  efficiency_mapping = {
+      (99, 90): 0.005,
+      (90, 70): 0.1,
+      (70, 50): 0.8,
+      (50, 30): 1.8,
+      (30, 1): 3
+  }
+
+  eff_value = int(efficiency)
+
+  eff = 0
+  for (upper, lower), eff_map in efficiency_mapping.items():
+    if upper > eff_value >= lower:
+      eff = eff_map
+      break
+  return eff
+
 def fetch_pools():
   while True:
     try:
@@ -45,49 +63,66 @@ def fetch_pools():
       time.sleep(15)
 
 def mine(username, mining_key, index, soc):
+    try:
+      import libducohasher
+      fasthash_supported = True
+    except Exception as e:
+      fasthash_supported = False
+
     identifier = socket.gethostname().split(".")[0]
+    efficiency = get_efficiency()
     while not stop_thread:
       soc.send(bytes(f"JOB,{str(username)},LOW,{mining_key}", encoding="utf8"))
 
       job = soc.recv(1024).decode().rstrip("\n")
       job = job.split(",")
+      last_h = job[0]
+      exp_h = job[1]
       difficulty = job[2]
+      if fasthash_supported:
+        time_start = time.time()
 
-      hashingStartTime = time.time()
-      base_hash = hashlib.sha1(str(job[0]).encode("ascii"))
+        hasher = libducohasher.DUCOHasher(bytes(last_h, encoding='ascii'))
+        result = hasher.DUCOS1(
+            bytes(bytearray.fromhex(exp_h)), int(difficulty), efficiency)
 
-      for result in range(100 * int(difficulty) + 1):
-        temp_hash = base_hash.copy()
-        temp_hash.update(str(result).encode("ascii"))
-        ducos1 = temp_hash.hexdigest()
+        time_elapsed = time.time() - time_start
+        hashrate = result / time_elapsed
+      else:
+        hashingStartTime = time.time()
+        base_hash = hashlib.sha1(str(last_h).encode("ascii"))
 
-        if job[1] == ducos1:
-          hashingStopTime = time.time()
-          timeDifference = hashingStopTime - hashingStartTime
-          hashrate = result / timeDifference
+        for result in range(100 * int(difficulty) + 1):
+          temp_hash = base_hash.copy()
+          temp_hash.update(str(result).encode("ascii"))
+          ducos1 = temp_hash.hexdigest()
 
-          soc.send(bytes(f"{str(result)},{str(hashrate)},{SOFTWARE_NAME},{identifier}-{idx}", encoding="utf8"))
-
-          feedback = soc.recv(1024).decode().rstrip("\n")
-
-          if feedback == Feedback.GOOD.value:
-            print(f"{current_time()}: Accepted share",
-                  result,
-                  "Hashrate",
-                  int(hashrate/1000),
-                  "kH/s",
-                  "Difficulty",
-                  difficulty)
+          if exp_h == ducos1:
+            hashingStopTime = time.time()
+            timeDifference = hashingStopTime - hashingStartTime
+            hashrate = result / timeDifference
             break
-          elif feedback == Feedback.BAD.value:
-            print(f"{current_time()}: Rejected share",
-                  result,
-                  "Hashrate",
-                  int(hashrate/1000),
-                  "kH/s",
-                  "Difficulty",
-                  difficulty)
-            break
+
+      # Send feedback
+      soc.send(bytes(f"{str(result)},{str(hashrate)},{SOFTWARE_NAME},{identifier}-{idx}", encoding="utf8"))
+      feedback = soc.recv(1024).decode().rstrip("\n")
+
+      if feedback == Feedback.GOOD.value:
+        print(f"{current_time()}: Accepted share",
+              result,
+              "Hashrate",
+              int(hashrate/1000),
+              "kH/s",
+              "Difficulty",
+              difficulty)
+      elif feedback == Feedback.BAD.value:
+        print(f"{current_time()}: Rejected share",
+              result,
+              "Hashrate",
+              int(hashrate/1000),
+              "kH/s",
+              "Difficulty",
+              difficulty)
 
 def main():
   soc = socket.socket()

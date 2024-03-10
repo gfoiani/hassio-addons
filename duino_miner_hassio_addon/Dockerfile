@@ -4,6 +4,7 @@ FROM $BUILD_FROM
 # Install requirements for add-on
 RUN \
   apk add --no-cache \
+  libstdc++ gcompat \
   python3 \
   py3-pip
 
@@ -16,6 +17,7 @@ WORKDIR /usr/src/app
 COPY ./run.sh /usr/src/app/
 COPY ./main.py /usr/src/app/
 COPY ./miner.py /usr/src/app/
+COPY ./fasthash.py /usr/src/app/
 
 VOLUME /usr/src/app
 
