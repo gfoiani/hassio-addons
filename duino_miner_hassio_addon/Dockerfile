@@ -23,4 +23,4 @@ VOLUME /usr/src/app
 
 RUN chmod a+x /usr/src/app/run.sh
 
-CMD ["sh", "-c", "./run.sh"]
+CMD ["bash", "-c", "/usr/src/app/run.sh"]
