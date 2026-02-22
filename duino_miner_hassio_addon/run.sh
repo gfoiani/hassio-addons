@@ -1,17 +1,10 @@
 #!/usr/bin/with-contenv bashio
 
 echo "Hassio Duco-Miner."
-echo "Based on MineCryptoOnWifiRouter by BastelPichi  "
+echo "Based on MineCryptoOnWifiRouter by BastelPichi"
 echo ""
 
-echo "Creating venv . . ."
-python3 -m venv ./venv
-echo "Activating venv . . ."
-source ./venv/bin/activate
-echo "Installing requests . . ."
-pip3 install requests
-
-if [[ $LOCAL_DEPOLY != "true" ]]; then
+if [[ $LOCAL_DEPLOY != "true" ]]; then
   USERNAME=$(bashio::config 'username')
   MINING_KEY=$(bashio::config 'mining_key')
   EFFICIENCY=$(bashio::config 'efficiency')

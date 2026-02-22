@@ -6,7 +6,8 @@ RUN \
   apk add --no-cache \
   libstdc++ gcompat \
   python3 \
-  py3-pip
+  py3-pip && \
+  pip3 install --no-cache-dir requests
 
 
 RUN mkdir -p /usr/src/app
