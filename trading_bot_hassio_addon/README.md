@@ -221,10 +221,37 @@ docker logs -f trading-bot
 
 ## Persistent storage
 
-Open positions and trade logs are written to `/usr/src/app/storage/`:
+Open positions and trade logs are written to `/data/`, the standard Home Assistant addon persistent directory:
 
-- `positions.json` – current open positions (survives restart)
-- `trades.log` – append-only trade history
+| File | Description |
+| ---- | ----------- |
+| `positions.json` | Current open positions (survives restarts and updates) |
+| `trades.log` | Append-only trade history: one line per ENTER/EXIT event |
+
+### Viewing the trade log in Home Assistant
+
+The `/data/` directory is accessible via the **File Editor** addon or **Studio Code Server**:
+
+1. Install the **File Editor** addon from the HA addon store.
+2. Navigate to the addon data folder: **`/addon_configs/<slug>/data/trades.log`**
+   (the slug is `day-trading-bot` unless changed in `config.yaml`).
+
+Each line in `trades.log` looks like:
+
+```text
+2024-01-15 09:32:15 UTC | ENTER | NYSE | AAPL.US      | LONG  | qty=5      | entry=185.2300 | SL=181.5254 | TP=192.6392
+2024-01-15 09:45:30 UTC | EXIT  | NYSE | AAPL.US      | LONG  | qty=5      | entry=185.2300 | exit=192.6392  | P&L=+36.81 | reason=take-profit
+```
+
+### Viewing in local Docker mode
+
+```bash
+# Print the full log
+docker exec trading-bot cat /data/trades.log
+
+# Follow in real time
+docker exec trading-bot tail -f /data/trades.log
+```
 
 ---
 

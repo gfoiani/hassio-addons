@@ -28,7 +28,7 @@ fi
 echo "Starting container …"
 docker run -dit \
   --name ${CONTAINER_NAME} \
-  -v ${CONTAINER_NAME}-storage:/usr/src/app/storage \
+  -v ${CONTAINER_NAME}-data:/data \
   --env-file .env \
   --restart=no \
   --log-opt max-size=50m \
@@ -37,5 +37,9 @@ docker run -dit \
 echo ""
 echo "Container started. Follow logs with:"
 echo "  docker logs -f ${CONTAINER_NAME}"
+echo ""
+echo "Trade log and positions are stored in the Docker volume '${CONTAINER_NAME}-data'."
+echo "To read the trade log:"
+echo "  docker exec ${CONTAINER_NAME} cat /data/trades.log"
 echo ""
 docker ps

@@ -34,6 +34,22 @@ if [[ -z "$BOT_TOKEN" || "$BOT_TOKEN" == "your_bot_token_here" ]]; then
   exit 1
 fi
 
+# Verifica che ALLOWED_CHAT_IDS non contenga il valore placeholder
+CHAT_IDS=$(grep -E '^ALLOWED_CHAT_IDS=' .env | cut -d= -f2 | tr -d ' ')
+if [[ -z "$CHAT_IDS" || "$CHAT_IDS" == "your_chat_id_here" ]]; then
+  echo "Errore: ALLOWED_CHAT_IDS non impostato nel file .env."
+  echo "Trova il tuo chat ID inviando un messaggio a @userinfobot su Telegram."
+  exit 1
+fi
+
+# Verifica che RELAY_API_KEY sia impostato
+API_KEY=$(grep -E '^RELAY_API_KEY=' .env | cut -d= -f2 | tr -d ' ')
+if [[ -z "$API_KEY" || "$API_KEY" == "your_secret_key_here" ]]; then
+  echo "Errore: RELAY_API_KEY non impostato nel file .env."
+  echo "Genera una chiave con: python3 -c \"import secrets; print(secrets.token_hex(32))\""
+  exit 1
+fi
+
 # ---------------------------------------------------------------------------
 # Build immagine
 # ---------------------------------------------------------------------------

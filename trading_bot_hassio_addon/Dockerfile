@@ -1,8 +1,9 @@
-ARG BUILD_FROM
+ARG BUILD_FROM=alpine:3.13
 FROM $BUILD_FROM
 
 # Install system dependencies
-# openjdk17-jre-headless  – Java runtime for Directa Darwin CommandLine (DCL.jar)
+# openjdk11-jre-headless  – Java runtime for Directa Darwin CommandLine (DCL.jar)
+#                           (openjdk17 not available in Alpine 3.13; jdk11 suffices)
 # netcat-openbsd           – used by run.sh to wait for Darwin sockets to be ready
 # curl                     – used by run.sh to download DCL.jar on first run
 RUN \
@@ -15,11 +16,11 @@ RUN \
   python3-dev \
   libffi-dev \
   openssl-dev \
-  openjdk17-jre-headless \
+  openjdk11-jre-headless \
   netcat-openbsd \
   curl
 
-RUN mkdir -p /usr/src/app /usr/src/app/storage
+RUN mkdir -p /usr/src/app /data
 
 WORKDIR /usr/src/app
 

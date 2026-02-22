@@ -46,7 +46,9 @@ from trading.telegram_notifier import TelegramNotifier
 
 logger = logging.getLogger("trading_bot.bot")
 
-STORAGE_DIR = Path("/usr/src/app/storage")
+# /data is the standard HA addon persistent storage directory.
+# In local Docker testing it is mounted as a named volume (see deploy_local.sh).
+STORAGE_DIR = Path("/data")
 POSITIONS_FILE = STORAGE_DIR / "positions.json"
 TRADES_LOG_FILE = STORAGE_DIR / "trades.log"
 
@@ -623,14 +625,26 @@ class TradingBot:
 
     def _log_trade(self, action: str, position: Position):
         try:
-            line = (
-                f"{datetime.utcnow().isoformat()} "
-                f"{action} {position.exchange} {position.symbol} "
-                f"{position.side.value} qty={position.quantity} "
-                f"price={position.close_price if action == 'EXIT' else position.entry_price:.4f} "
-                f"pnl={position.realized_pnl:.2f}" if action == "EXIT" else ""
-            )
+            now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            side = position.side.value.upper()
+
+            if action == "ENTER":
+                line = (
+                    f"{now} UTC | ENTER | {position.exchange:<4} | {position.symbol:<12} | {side:<5} |"
+                    f" qty={position.quantity:<6} | entry={position.entry_price:.4f}"
+                    f" | SL={position.stop_loss:.4f} | TP={position.take_profit:.4f}"
+                )
+            else:  # EXIT
+                pnl = position.realized_pnl or 0.0
+                reason = (position.close_reason or "unknown").replace("_", "-")
+                line = (
+                    f"{now} UTC | EXIT  | {position.exchange:<4} | {position.symbol:<12} | {side:<5} |"
+                    f" qty={position.quantity:<6} | entry={position.entry_price:.4f}"
+                    f" | exit={position.close_price:.4f}"
+                    f" | P&L={pnl:+.2f} | reason={reason}"
+                )
+
             with open(TRADES_LOG_FILE, "a") as f:
                 f.write(line + "\n")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(f"Could not write trade log: {exc}")

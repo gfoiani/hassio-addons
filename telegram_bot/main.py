@@ -41,9 +41,18 @@ RELAY_API_KEY: str = os.environ["RELAY_API_KEY"]
 WEBHOOK_URL: str = os.environ.get("WEBHOOK_URL", "").rstrip("/")
 
 _raw_ids = os.environ.get("ALLOWED_CHAT_IDS", "")
-ALLOWED_CHAT_IDS: set[int] = {
-    int(cid.strip()) for cid in _raw_ids.split(",") if cid.strip()
-}
+ALLOWED_CHAT_IDS: set[int] = set()
+for _cid in _raw_ids.split(","):
+    _cid = _cid.strip()
+    if not _cid:
+        continue
+    try:
+        ALLOWED_CHAT_IDS.add(int(_cid))
+    except ValueError:
+        print(
+            f"[config] WARNING: ALLOWED_CHAT_IDS contains non-numeric value '{_cid}' – skipped.\n"
+            f"         Find your chat ID by messaging @userinfobot on Telegram."
+        )
 
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 

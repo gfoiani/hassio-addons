@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: trading-bot-telegram-relay
+    name: hassio-trading-assistant
     runtime: python
     region: frankfurt
     plan: free
