@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 import requests
 from platform import machine, system, python_version, python_version_tuple
@@ -25,6 +24,9 @@ class Fasthash:
 
     @staticmethod
     def load():
+        url = None
+        library_name = None
+
         if system() == 'Windows':
             library_name = "libducohasher.pyd"
             url = f"{Fasthash.base_url}/libducohashWindows.pyd"
@@ -40,12 +42,22 @@ class Fasthash:
             library_name = processor_mapping.get(processor, None)
             url = f'{Fasthash.base_url}/{library_name}' if library_name else None
         elif system() == 'Darwin':
-          library_name = 'libducohasher.so'
-        else:
-          library_name = None
+            # No pre-built macOS binary is available from duinocoin.com;
+            # skip download and fall back to pure-Python hashing.
+            print("Fasthash: no pre-built macOS binary available, using pure-Python fallback")
+            return
+        # else: unknown OS → library_name and url stay None
 
         if library_name and not Path(library_name).is_file():
-          print("Downloading fasthash")
-          r = requests.get(url, timeout=5)
-          with open('libducohasher.so', 'wb') as f:
-            f.write(r.content)
+            if url is None:
+                print(f"Fasthash: no download URL for {system()} {machine()}, using pure-Python fallback")
+                return
+            print("Downloading fasthash")
+            try:
+                r = requests.get(url, timeout=10)
+                r.raise_for_status()
+                with open(library_name, 'wb') as f:
+                    f.write(r.content)
+                print(f"Fasthash downloaded: {library_name}")
+            except Exception as e:
+                print(f"Fasthash download failed: {e} — using pure-Python fallback")

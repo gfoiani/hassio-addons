@@ -3,7 +3,7 @@
 set +u
 
 echo "Hassio Duco-Miner."
-echo "Based on MineCryptoOnWifiRouter by BastelPichi  "
+echo "Based on MineCryptoOnWifiRouter by BastelPichi"
 echo ""
 
 echo "Creating venv . . ."
