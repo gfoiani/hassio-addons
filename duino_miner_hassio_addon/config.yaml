@@ -20,8 +20,10 @@ options:
   mining_key: "None"
   efficiency: "100"
   threads_count: "1"
+  log_level: "minimal"
 schema:
   username: str
   mining_key: str
   efficiency: str
   threads_count: str
+  log_level: "minimal|verbose"

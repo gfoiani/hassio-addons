@@ -9,7 +9,8 @@ import requests
 import signal
 
 stop_thread = False  # Flag to signal the thread to stop
-script, username, mining_key, efficiency, idx = sys.argv
+script, username, mining_key, efficiency, idx, *_rest = sys.argv
+log_level = _rest[0] if _rest else "minimal"
 
 def signal_handler(sig, frame):
   global stop_thread
@@ -98,8 +99,11 @@ def mine(username, mining_key, index, soc):
         soc.send(str(result).encode("utf-8") + b"," + hashrate_str + result_suffix)
 
         feedback = soc.recv(BUFFER_SIZE).decode().rstrip("\n")
-        if feedback == "BAD":
-            print(f"{current_time()}: Rejected share", result, "Hashrate", hashrate_str.decode(), "Difficulty", difficulty)
+        if feedback == "GOOD":
+            if log_level == "verbose":
+                print(f"{current_time()}: Thread {index} | Accepted | result={result} | {hashrate_str.decode()} | diff={difficulty}")
+        elif feedback == "BAD":
+            print(f"{current_time()}: Thread {index} | Rejected | result={result} | {hashrate_str.decode()} | diff={difficulty}")
 
 def main():
   while True:

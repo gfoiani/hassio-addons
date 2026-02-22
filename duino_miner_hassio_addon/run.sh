@@ -9,12 +9,14 @@ if [[ $LOCAL_DEPLOY != "true" ]]; then
   MINING_KEY=$(bashio::config 'mining_key')
   EFFICIENCY=$(bashio::config 'efficiency')
   THREADS_COUNT=$(bashio::config 'threads_count')
+  LOG_LEVEL=$(bashio::config 'log_level')
 fi
 
 echo "Username is: " $USERNAME
 echo "Mining key is: " $MINING_KEY
 echo "Efficiency is: " $EFFICIENCY
 echo "Threads count is: " $THREADS_COUNT
+echo "Log level is: " $LOG_LEVEL
 
 echo "Run Miner.py . . ."
-python3 main.py $USERNAME $MINING_KEY $EFFICIENCY $THREADS_COUNT
+python3 main.py $USERNAME $MINING_KEY $EFFICIENCY $THREADS_COUNT $LOG_LEVEL
