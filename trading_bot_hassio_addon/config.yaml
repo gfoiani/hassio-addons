@@ -1,0 +1,97 @@
+name: "Day Trading Bot"
+description: "Automated day trading bot for NYSE and LSE. Supports XTB (xAPI) and Directa SIM brokers."
+version: "1.0.0"
+slug: "day-trading-bot"
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armv7
+  - armhf
+
+apparmor: true
+backup: hot
+tmpfs: false
+stage: experimental
+
+options:
+  # Broker selection:
+  #   "xtb"     - XTB xAPI (Europe/Italy, LSE+NYSE, CFD, regime dichiarativo)
+  #   "directa" - Directa SIM (Italy, LSE+NYSE+Borsa Italiana, regime amministrato)
+  broker: "xtb"
+
+  # XTB    : api_key = userId (numeric account ID), api_secret = password
+  # Directa: api_key = Directa userId, api_secret = Directa password
+  #          (used to auto-start Darwin CommandLine inside the container)
+  api_key: ""
+  api_secret: ""
+  # "true" = demo/paper account, "false" = real money (USE WITH CAUTION)
+  # Directa: "true" starts Darwin CommandLine in -test mode (no real orders)
+  paper_trading: "true"
+
+  # Exchanges to monitor: comma-separated list of NYSE, LSE
+  exchanges: "NYSE,LSE"
+
+  # Symbols to trade on NYSE
+  # XTB format    : AAPL.US, MSFT.US, TSLA.US
+  # Directa format: .AAPL, .MSFT, .TSLA  (dot prefix for US stocks)
+  symbols_nyse: ""
+  # Symbols to trade on LSE
+  # XTB format    : BP.UK, VOD.UK, HSBA.UK
+  # Directa format: BP, VOD, HSBA  (plain ticker for LSE)
+  symbols_lse: ""
+
+  # ── Directa SIM settings ──────────────────────────────────────────────
+  # Only used when broker = "directa". Ignored for XTB.
+  # Darwin CommandLine (DCL.jar) is auto-started inside the container.
+  # Set directa_host to a remote IP only if Darwin runs on a separate machine.
+  directa_host: "127.0.0.1"
+
+  # Risk management
+  # Maximum capital to allocate per single position (in account currency)
+  max_position_value: "1000"
+  # Stop loss percentage (e.g. "2.0" = 2%)
+  stop_loss_pct: "2.0"
+  # Take profit percentage (e.g. "4.0" = 4%)
+  take_profit_pct: "4.0"
+  # Maximum daily portfolio loss before halting (e.g. "5.0" = 5%)
+  max_daily_loss_pct: "5.0"
+
+  # Trading strategy: "orb" (Opening Range Breakout) or "momentum" (EMA crossover + RSI)
+  strategy: "orb"
+  # ORB: minutes after open to define the opening range
+  orb_minutes: "15"
+
+  # Minutes before market open to start monitoring
+  pre_market_minutes: "30"
+  # Minutes before market close to close all positions
+  close_minutes: "15"
+  # How often (seconds) the bot checks market state
+  check_interval: "30"
+
+  # ── Telegram integration (optional) ───────────────────────────────────
+  # Deploy the companion relay service on Render, then fill in these values.
+  # Leave telegram_relay_url empty to disable Telegram notifications.
+  telegram_relay_url: ""   # e.g. https://trading-bot-telegram-relay.onrender.com
+  telegram_api_key: ""     # must match RELAY_API_KEY on the Render service
+
+schema:
+  broker: str
+  api_key: str
+  api_secret: str
+  paper_trading: str
+  exchanges: str
+  symbols_nyse: str
+  symbols_lse: str
+  max_position_value: str
+  stop_loss_pct: str
+  take_profit_pct: str
+  max_daily_loss_pct: str
+  strategy: str
+  orb_minutes: str
+  pre_market_minutes: str
+  close_minutes: str
+  check_interval: str
+  directa_host: str
+  telegram_relay_url: str
+  telegram_api_key: str

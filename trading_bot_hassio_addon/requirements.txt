@@ -1,0 +1,12 @@
+# Core
+pandas>=2.0.0
+pytz>=2024.1
+requests>=2.31.0
+
+# XTB broker (xAPI WebSocket)
+websocket-client>=1.8.0
+
+# Directa broker uses only Python stdlib (socket) – no extra dependency
+
+# Market data fallback
+yfinance>=0.2.40
