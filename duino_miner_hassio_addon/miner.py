@@ -22,7 +22,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 DEFAULT_NODE_ADDRESS = "server.duinocoin.com"
 DEFAULT_NODE_PORT = 2813
-SOFTWARE_NAME = "HASSIO Miner"
+SOFTWARE_NAME = "Raspberry Pi Miner"
 BUFFER_SIZE = 4096  # Increased from 1024 to handle larger server responses
 
 def current_time():
@@ -75,7 +75,7 @@ def mine(username, mining_key, index, soc):
         if fasthash_supported:
             time_start = time.time()
             hasher = libducohasher.DUCOHasher(last_h.encode('ascii'))
-            result = hasher.DUCOS1(bytes.fromhex(exp_h), difficulty_int, eff_sleep)
+            result = hasher.DUCOS1(bytes.fromhex(exp_h), difficulty_int, int(eff_sleep))
             time_elapsed = time.time() - time_start
             hashrate = result / time_elapsed if time_elapsed > 0 else 0
         else:
@@ -98,12 +98,18 @@ def mine(username, mining_key, index, soc):
         hashrate_str = (str(int(hashrate / 1000)) + "kH/s").encode("utf-8")
         soc.send(str(result).encode("utf-8") + b"," + hashrate_str + result_suffix)
 
-        feedback = soc.recv(BUFFER_SIZE).decode().rstrip("\n")
-        if feedback == "GOOD":
+        feedback_parts = soc.recv(BUFFER_SIZE).decode().rstrip("\n").split(",")
+        status = feedback_parts[0]
+        reason = feedback_parts[1] if len(feedback_parts) > 1 else ""
+
+        if status == "GOOD":
             if log_level == "verbose":
                 print(f"{current_time()}: Thread {index} | Accepted | result={result} | {hashrate_str.decode()} | diff={difficulty}")
-        elif feedback == "BAD":
-            print(f"{current_time()}: Thread {index} | Rejected | result={result} | {hashrate_str.decode()} | diff={difficulty}")
+        elif status == "BLOCK":
+            print(f"{current_time()}: Thread {index} | Block found! | result={result} | {hashrate_str.decode()} | diff={difficulty}")
+        elif status == "BAD":
+            reason_str = f" | reason={reason}" if reason else ""
+            print(f"{current_time()}: Thread {index} | Rejected | result={result} | {hashrate_str.decode()} | diff={difficulty}{reason_str}")
 
 def main():
   while True:

@@ -1,4 +1,14 @@
-# 1.3.1
+# Changelog
+
+## 1.4.0
+
+- Add `log_level` configuration option (`minimal` / `verbose`) — controllable from HA interface and via `LOG_LEVEL` env var
+- Fix `libducohasher` crash: `eff` argument must be integer, was passing float
+- Fix `SOFTWARE_NAME` from unknown `"HASSIO Miner"` to `"Raspberry Pi Miner"` to avoid server warnings
+- Fix server feedback parsing: handle `BAD,reason` format and new `BLOCK` response type
+- Log rejection reason when server returns one (e.g. `reason=Too low difficulty`)
+
+## 1.3.1
 
 - Fix `LOCAL_DEPOLY` typo in `run.sh` — local deploy env-var detection now works correctly
 - Fix fasthash Darwin crash: undefined `url` variable caused `NameError` on macOS
@@ -12,34 +22,34 @@
 - Remove unnecessary venv creation from `run.sh`
 - Add graceful error handling and timeout for fasthash download failures
 
-# 1.3.0
+## 1.3.0
 
 - Add Fashhash algorithm
 
-# 1.2.2
+## 1.2.2
 
 - Add miner identifier
 
-# 1.2.1
+## 1.2.1
 
 - Minor code refactoring
 
-# 1.2.0
+## 1.2.0
 
 - Add multithreading
 
-# 1.1.2
+## 1.1.2
 
 - Container uses tmpfs, a memory file system. (20.11.22)
 
-# 1.1.1
+## 1.1.1
 
 - Update config.yaml (17.11.22)
 
-# 1.1.0
+## 1.1.0
 
 - Added ability to specify username and mining_key from configuration panel (15.11.22)
 
-# 1.0.7
+## 1.0.7
 
 - First commit
