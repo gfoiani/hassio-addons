@@ -9,6 +9,10 @@ RUN \
   py3-wheel \
   py3-numpy \
   py3-pandas \
+  py3-aiohttp \
+  py3-multidict \
+  py3-yarl \
+  py3-frozenlist \
   gcc \
   musl-dev \
   python3-dev \
