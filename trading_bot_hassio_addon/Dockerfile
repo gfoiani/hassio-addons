@@ -8,6 +8,7 @@ FROM $BUILD_FROM
 # curl                     – used by run.sh to download DCL.jar on first run
 RUN \
   apk add --no-cache \
+  bash \
   python3 \
   py3-pip \
   py3-wheel \
@@ -32,4 +33,4 @@ COPY ./trading/ /usr/src/app/trading/
 
 RUN chmod a+x /usr/src/app/run.sh
 
-CMD ["bash", "-c", "/usr/src/app/run.sh"]
+CMD ["bash", "/usr/src/app/run.sh"]
