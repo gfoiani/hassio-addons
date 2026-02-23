@@ -12,7 +12,7 @@ arch:
 apparmor: true
 backup: hot
 tmpfs: false
-stage: experimental
+stage: stable
 
 options:
   # Broker selection:
@@ -25,9 +25,9 @@ options:
   #          (used to auto-start Darwin CommandLine inside the container)
   api_key: ""
   api_secret: ""
-  # "true" = demo/paper account, "false" = real money (USE WITH CAUTION)
-  # Directa: "true" starts Darwin CommandLine in -test mode (no real orders)
-  paper_trading: "true"
+  # true = demo/paper account, false = real money (USE WITH CAUTION)
+  # Directa: true starts Darwin CommandLine in -test mode (no real orders)
+  paper_trading: true
 
   # Exchanges to monitor: comma-separated list of NYSE, LSE
   exchanges: "NYSE,LSE"
@@ -79,7 +79,7 @@ schema:
   broker: str
   api_key: str
   api_secret: str
-  paper_trading: str
+  paper_trading: bool
   exchanges: str
   symbols_nyse: str
   symbols_lse: str
