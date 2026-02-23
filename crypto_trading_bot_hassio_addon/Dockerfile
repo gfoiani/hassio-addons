@@ -7,6 +7,8 @@ RUN \
   python3 \
   py3-pip \
   py3-wheel \
+  py3-numpy \
+  py3-pandas \
   gcc \
   musl-dev \
   python3-dev \
