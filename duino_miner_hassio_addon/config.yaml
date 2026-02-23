@@ -25,4 +25,4 @@ schema:
   mining_key: str
   efficiency: str
   threads_count: str
-  log_level: "minimal|verbose"
+  log_level: list(minimal|verbose)
