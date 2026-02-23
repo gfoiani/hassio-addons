@@ -1,8 +1,17 @@
 #!/usr/bin/with-contenv bashio
 
+set +u
+
 echo "Hassio Duco-Miner."
 echo "Based on MineCryptoOnWifiRouter by BastelPichi"
 echo ""
+
+echo "Creating venv . . ."
+python3 -m venv ./venv
+echo "Activating venv . . ."
+source ./venv/bin/activate
+echo "Installing requests . . ."
+pip3 install requests
 
 if [[ $LOCAL_DEPLOY != "true" ]]; then
   USERNAME=$(bashio::config 'username')
