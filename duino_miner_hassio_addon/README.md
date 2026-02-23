@@ -46,6 +46,7 @@ Based on [MineCryptoOnWifiRouter](https://github.com/BastelPichi/MineCryptoOnWif
 | `mining_key` | string | `None` | Your mining key. Use `None` if you have not set one |
 | `efficiency` | string | `100` | CPU usage level. `100` = full speed; lower values add sleep between shares (see table below) |
 | `threads_count` | string | `1` | Number of parallel mining processes. See note below |
+| `log_level` | string | `minimal` | Controls share logging verbosity: `minimal` logs only rejections, `verbose` logs every accepted share |
 
 ### Efficiency levels
 
@@ -68,6 +69,13 @@ Each thread opens a separate connection to the DUCO server and mines independent
 
 Adding more threads than CPU cores does not increase hash rate and can cause throttling by the server.
 
+### Log level
+
+| Value | What is logged |
+| --- | --- |
+| `minimal` *(default)* | Connection events, rejected shares (with rejection reason if provided), errors |
+| `verbose` | Everything above, plus every accepted share with hashrate and difficulty |
+
 ---
 
 ## Local development
@@ -88,6 +96,7 @@ USERNAME=yourname        # your Duino-Coin username
 MINING_KEY=yourkey       # your mining key (or leave as "None")
 EFFICIENCY=100           # 100 = maximum speed
 THREADS_COUNT=2          # number of parallel mining processes
+LOG_LEVEL=verbose        # verbose = log all accepted/rejected shares
 ```
 
 ### 2. Build and run
@@ -108,7 +117,7 @@ This script:
 docker logs -f duino-miner
 ```
 
-Expected output when working correctly:
+Expected output with `LOG_LEVEL=verbose`:
 
 ```text
 Hassio Duco-Miner.
@@ -118,8 +127,17 @@ Fasthash downloaded: libducohashLinux.so
 Fasthash available
 12:34:56: Running Thread 1
 12:34:56: Searching for fastest connection to the server
+12:34:56: Running Thread 2
 12:34:57: Fastest connection found
-12:34:57: Server Version: 4.2
+12:34:57: Server Version: 4.3
+12:34:58: Thread 1 | Accepted | result=4321 | 12kH/s | diff=5
+12:34:58: Thread 2 | Accepted | result=8765 | 11kH/s | diff=5
+```
+
+With `LOG_LEVEL=minimal` only rejections appear:
+
+```text
+12:34:58: Thread 1 | Rejected | result=4321 | 12kH/s | diff=5 | reason=Too low difficulty
 ```
 
 > **macOS note:** the pre-built `libducohasher` binary is not available for macOS. The miner will fall back to pure-Python hashing automatically — hash rate will be lower but otherwise fully functional.
@@ -137,6 +155,25 @@ docker stop duino-miner    # stop
 docker rm -f duino-miner
 docker rmi duino-miner:latest
 ```
+
+---
+
+## Updating libducohasher
+
+The `libducohasher` C extension is downloaded automatically from the Duino-Coin server on first container start. Since the filename never changes (no version suffix), a cached file is reused on subsequent starts even if a newer binary is available on the server.
+
+To force a re-download of the latest binary:
+
+```bash
+# Local Docker
+docker rm -f duino-miner
+docker volume prune -f
+./deploy_local.sh
+```
+
+On Home Assistant: **Stop addon → Uninstall → Reinstall**.
+
+The library is written in Rust. To compile it yourself for a custom architecture, see the [official guide](https://github.com/revoxhere/duino-coin/wiki/How-to-compile-fasthash-accelerations). The source is also available at `https://server.duinocoin.com/fasthash/libducohash.tar.gz`.
 
 ---
 
