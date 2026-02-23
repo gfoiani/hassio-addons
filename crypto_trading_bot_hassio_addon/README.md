@@ -24,10 +24,42 @@ Optional **Telegram notifications** via the existing relay service.
 ## Prerequisites
 
 1. A [Binance account](https://binance.com) with API access enabled.
-2. **API Key + Secret** with permissions: `Read Info`, `Spot & Margin Trading`.
-   - Disable `Withdrawals` permission for safety.
-3. For paper trading: [Binance Testnet](https://testnet.binance.vision/) credentials (separate from your real account).
-4. *(Optional)* The [Telegram relay service](../telegram_bot/README.md) deployed on Render.
+2. **API Key + Secret** — see setup instructions below.
+3. *(Optional)* The [Telegram relay service](../telegram_bot/README.md) deployed on Render.
+
+---
+
+## Binance API setup
+
+### Live account (real funds)
+
+> ⚠️ Only do this when you are ready to trade with real money. Always test with Testnet first.
+
+1. Log in to [binance.com](https://binance.com).
+2. Click your profile icon (top right) → **Account & Security** → **API Management**.
+3. Click **Create API** → choose **System generated** → enter a label (e.g. `hassio-crypto-bot`).
+4. Complete identity verification (2FA code required).
+5. On the API permissions page, enable **only** these two:
+   - ✅ **Enable Reading** (Read Info)
+   - ✅ **Enable Spot & Margin Trading**
+   - ❌ **Do NOT enable Withdrawals** — not needed and a security risk.
+6. Under **IP access restrictions**, consider adding a fixed IP (your Raspberry Pi) for extra safety. Or leave unrestricted if your IP is dynamic.
+7. Click **Save** → confirm with 2FA.
+8. Copy **API Key** and **Secret Key** immediately — the secret is shown **only once**.
+
+### Testnet account (paper trading — no real money)
+
+The Testnet uses separate credentials, independent from your real Binance account.
+
+1. Go to [testnet.binance.vision](https://testnet.binance.vision/).
+2. Click **Log In** → authenticate with your **GitHub** account.
+3. Under **API Keys**, click **Generate HMAC_SHA256 Key** → enter a label.
+4. Copy **API Key** and **Secret Key** — the secret is shown **only once**.
+5. The Testnet provides a pre-loaded paper balance (BTC, ETH, USDT) for testing.
+
+> **Note:** Testnet credentials do **not** work on the live Binance API and vice versa.
+> When `paper_trading: true`, the bot connects to `testnet.binance.vision`.
+> When `paper_trading: false`, it connects to the real `api.binance.com`.
 
 ---
 
