@@ -48,7 +48,7 @@ class Fasthash:
             return
         # else: unknown OS → library_name and url stay None
 
-        MODULE_NAME = "libducohasher.so"
+        MODULE_NAME = "libducohasher.pyd" if system() == 'Windows' else "libducohasher.so"
 
         if library_name and not Path(MODULE_NAME).is_file():
             if url is None:
