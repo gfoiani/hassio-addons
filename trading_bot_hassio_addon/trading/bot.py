@@ -117,6 +117,7 @@ class TradingBot:
             raise RuntimeError("Failed to connect to broker. Check credentials.")
 
         self._running = True
+        self._telegram.start_keepalive()
         logger.info(
             f"Trading bot started. Exchanges: {list(self._exchange_states.keys())} | "
             f"Strategy: {self._config.strategy}"

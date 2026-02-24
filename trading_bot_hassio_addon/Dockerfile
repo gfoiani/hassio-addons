@@ -2,10 +2,10 @@ ARG BUILD_FROM=alpine:3.13
 FROM $BUILD_FROM
 
 # Install system dependencies
-# openjdk11-jre  – Java runtime for Directa Darwin CommandLine (DCL.jar)
-#                  (Alpine uses openjdk11-jre, not the Debian-style -headless variant)
-# curl           – used by run.sh to download DCL.jar on first run
-# nc             – already provided by busybox in Alpine (no separate package needed)
+# openjdk8-jre  – Java runtime for Directa Darwin CommandLine (DCL.jar)
+#                 (openjdk11 is not available for armv7 in Alpine 3.13; jdk8 suffices)
+# curl          – used by run.sh to download DCL.jar on first run
+# nc            – already provided by busybox in Alpine (no separate package needed)
 RUN \
   apk add --no-cache \
   bash \
@@ -17,7 +17,7 @@ RUN \
   python3-dev \
   libffi-dev \
   openssl-dev \
-  openjdk11-jre \
+  openjdk8-jre \
   curl
 
 RUN mkdir -p /usr/src/app /data

@@ -1,4 +1,4 @@
-ARG BUILD_FROM=alpine:3.13
+ARG BUILD_FROM=alpine:3.18
 FROM $BUILD_FROM
 
 RUN \
@@ -10,6 +10,7 @@ RUN \
   py3-numpy \
   py3-pandas \
   py3-aiohttp \
+  py3-pycryptodome \
   gcc \
   musl-dev \
   python3-dev \
