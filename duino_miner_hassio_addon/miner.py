@@ -11,6 +11,7 @@ import signal
 stop_thread = False  # Flag to signal the thread to stop
 script, username, mining_key, efficiency, idx, *_rest = sys.argv
 log_level = _rest[0] if _rest else "minimal"
+miner_name = _rest[1] if len(_rest) > 1 else ""
 
 def signal_handler(sig, frame):
   global stop_thread
@@ -22,7 +23,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 DEFAULT_NODE_ADDRESS = "server.duinocoin.com"
 DEFAULT_NODE_PORT = 2813
-SOFTWARE_NAME = "Raspberry Pi Miner"
+SOFTWARE_NAME = "HASSIO Miner"
 BUFFER_SIZE = 4096  # Increased from 1024 to handle larger server responses
 
 def current_time():
@@ -58,7 +59,7 @@ def mine(username, mining_key, index, soc):
     except ImportError:
         fasthash_supported = False
 
-    identifier = socket.gethostname().split(".")[0]
+    identifier = miner_name if miner_name else socket.gethostname().split(".")[0]
     eff_sleep = get_efficiency()
 
     # Pre-encode static parts to avoid repeated allocations in the hot loop
@@ -80,13 +81,14 @@ def mine(username, mining_key, index, soc):
             hashrate = result / time_elapsed if time_elapsed > 0 else 0
         else:
             base_hash = hashlib.sha1(last_h.encode("ascii"))
+            exp_h_bytes = bytes.fromhex(exp_h)  # convert once, compare raw bytes in inner loop
             hashing_start_time = time.time()
 
             result = 0
             for result in range(100 * difficulty_int + 1):
                 temp_hash = base_hash.copy()
                 temp_hash.update(str(result).encode("ascii"))
-                if exp_h == temp_hash.hexdigest():
+                if exp_h_bytes == temp_hash.digest():
                     break
 
             time_elapsed = time.time() - hashing_start_time
