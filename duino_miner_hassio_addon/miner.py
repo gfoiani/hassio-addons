@@ -11,7 +11,7 @@ import signal
 stop_thread = False  # Flag to signal the thread to stop
 script, username, mining_key, efficiency, idx, *_rest = sys.argv
 log_level = _rest[0] if _rest else "minimal"
-miner_name = _rest[1] if len(_rest) > 1 else ""
+miner_name = _rest[1] if len(_rest) > 1 else "hassio"
 
 def signal_handler(sig, frame):
   global stop_thread
@@ -64,7 +64,7 @@ def mine(username, mining_key, index, soc):
 
     # Pre-encode static parts to avoid repeated allocations in the hot loop
     job_request = f"JOB,{username},LOW,{mining_key}".encode("utf-8")
-    result_suffix = f",{SOFTWARE_NAME},{identifier}".encode("utf-8")
+    result_suffix = f",{SOFTWARE_NAME},{identifier},{index}".encode("utf-8")
 
     while not stop_thread:
         soc.send(job_request)

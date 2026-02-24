@@ -1,7 +1,8 @@
 name: "Crypto Trading Bot (Binance)"
 description: "Intraday crypto trading on Binance Spot with Momentum strategy and Telegram notifications"
-version: "1.0.0"
+version: "1.0.7"
 slug: "crypto-trading-bot"
+image: "ghcr.io/gfoiani/crypto-trading-bot-{arch}"
 init: false
 arch:
   - aarch64
@@ -17,14 +18,14 @@ options:
   api_key: ""
   api_secret: ""
   paper_trading: true
-  symbols: "BTCUSDT,ETHUSDT"
-  timeframe: "15"
-  max_position_value_usdt: "100"
-  stop_loss_pct: "2.0"
-  take_profit_pct: "4.0"
-  max_daily_loss_pct: "5.0"
-  check_interval: "60"
-  cooldown_minutes: "30"
+  symbols: "BTCUSDC,ETHUSDC"
+  timeframe: 15
+  max_position_value_usdt: 100
+  stop_loss_pct: 2.0
+  take_profit_pct: 4.0
+  max_daily_loss_pct: 5.0
+  check_interval: 60
+  cooldown_minutes: 30
   telegram_relay_url: ""
   telegram_api_key: ""
 schema:
@@ -32,12 +33,12 @@ schema:
   api_secret: str
   paper_trading: bool
   symbols: str
-  timeframe: list(15|30|60)
-  max_position_value_usdt: str
-  stop_loss_pct: str
-  take_profit_pct: str
-  max_daily_loss_pct: str
-  check_interval: str
-  cooldown_minutes: str
+  timeframe: int
+  max_position_value_usdt: float
+  stop_loss_pct: float
+  take_profit_pct: float
+  max_daily_loss_pct: float
+  check_interval: int
+  cooldown_minutes: int
   telegram_relay_url: str
   telegram_api_key: str

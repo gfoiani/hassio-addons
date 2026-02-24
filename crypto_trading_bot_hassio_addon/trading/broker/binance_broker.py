@@ -82,31 +82,40 @@ class BinanceBroker(BrokerBase):
     # Account
     # ------------------------------------------------------------------
 
+    # Stablecoins counted at face value (1:1 with USD)
+    _STABLECOINS = {"USDT", "USDC", "BUSD", "FDUSD", "TUSD"}
+
     def get_account_value(self) -> float:
-        """Total USDT value = free USDT + locked USDT + value of all crypto holdings."""
+        """Total stable-coin value + crypto holdings converted to USDT."""
         account = self._client.get_account()
         total = 0.0
         for asset in account["balances"]:
             free = float(asset["free"])
             locked = float(asset["locked"])
-            if asset["asset"] == "USDT":
-                total += free + locked
-            elif (free + locked) > 0:
-                symbol = asset["asset"] + "USDT"
-                try:
-                    price = float(self._client.get_symbol_ticker(symbol=symbol)["price"])
-                    total += (free + locked) * price
-                except Exception:
-                    pass  # skip non-USDT pairs without a direct price
+            amount = free + locked
+            if amount == 0:
+                continue
+            if asset["asset"] in self._STABLECOINS:
+                total += amount
+            else:
+                for quote in ("USDT", "USDC"):
+                    try:
+                        price = float(self._client.get_symbol_ticker(
+                            symbol=asset["asset"] + quote)["price"])
+                        total += amount * price
+                        break
+                    except Exception:
+                        continue
         return total
 
     def get_buying_power(self) -> float:
-        """Free USDT available for new orders."""
+        """Free stable-coin balance available for new orders."""
         account = self._client.get_account()
+        total = 0.0
         for asset in account["balances"]:
-            if asset["asset"] == "USDT":
-                return float(asset["free"])
-        return 0.0
+            if asset["asset"] in self._STABLECOINS:
+                total += float(asset["free"])
+        return total
 
     # ------------------------------------------------------------------
     # Symbol info & filters

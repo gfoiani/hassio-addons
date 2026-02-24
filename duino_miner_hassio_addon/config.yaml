@@ -2,6 +2,7 @@ name: "Duino coin miner"
 description: "Mine DUCO in Home Assistant"
 version: "1.4.8"
 slug: "duco-miner"
+image: "ghcr.io/gfoiani/duco-miner-{arch}"
 init: false
 arch:
   - aarch64
@@ -17,14 +18,14 @@ stage: stable
 options:
   username: "username"
   mining_key: "None"
-  efficiency: "100"
-  threads_count: "1"
+  efficiency: 100
+  threads_count: 1
   log_level: "minimal"
-  miner_name: ""
+  miner_name: "hassio"
 schema:
   username: str
   mining_key: str
-  efficiency: str
-  threads_count: str
+  efficiency: int
+  threads_count: int
   log_level: list(minimal|verbose)
   miner_name: str

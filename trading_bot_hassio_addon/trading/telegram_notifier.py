@@ -11,6 +11,8 @@ Telegram communication is routed through the Render relay service:
 
 import json
 import logging
+import threading
+import time
 import urllib.error
 import urllib.request
 from typing import Dict, List, Optional
@@ -55,6 +57,30 @@ class TelegramNotifier:
         if not self._relay_url or not chat_id or not html:
             return
         self._post("/api/command-result", {"chat_id": chat_id, "text": html})
+
+    def start_keepalive(self, interval: int = 600) -> None:
+        """
+        Start a background daemon thread that pings GET /health every `interval`
+        seconds to prevent the Render free-tier instance from going to sleep
+        (Render sleeps after ~15 min of inactivity; default interval = 10 min).
+        """
+        if not self._relay_url:
+            return
+
+        def _loop():
+            while True:
+                time.sleep(interval)
+                url = f"{self._relay_url}/health"
+                req = urllib.request.Request(url, method="GET")
+                try:
+                    with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+                        logger.debug(f"Keepalive ping OK (HTTP {resp.status})")
+                except Exception as exc:
+                    logger.debug(f"Keepalive ping failed: {exc}")
+
+        t = threading.Thread(target=_loop, daemon=True, name="telegram-keepalive")
+        t.start()
+        logger.info(f"Telegram relay keepalive started (interval={interval}s)")
 
     # ------------------------------------------------------------------
     # Internal HTTP helpers (stdlib only – no extra dependencies)

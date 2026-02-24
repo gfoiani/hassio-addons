@@ -81,6 +81,7 @@ class CryptoBot:
 
         self._load_positions()
         self._running = True
+        self._telegram.start_keepalive()
 
         logger.info(
             f"Crypto bot started. Symbols: {self._config.symbols} | "

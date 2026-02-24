@@ -14,12 +14,12 @@ signal.signal(signal.SIGINT, signal_handler)
 
 script, username, mining_key, efficiency, threads_count, *_rest = argv
 log_level = _rest[0] if _rest else "minimal"
-miner_name = _rest[1] if len(_rest) > 1 else ""
+miner_name = _rest[1] if len(_rest) > 1 else "hassio"
 
 MINER_SCRIPT = "miner.py"
 
 def run_script(script_name, username, mining_key, efficiency, thread_index, log_level, miner_name):
-  subprocess.run(["python3", script_name, username, mining_key, efficiency, thread_index, log_level, miner_name])
+  subprocess.run(["python3", "-u", script_name, username, mining_key, efficiency, thread_index, log_level, miner_name])
 
 if __name__ == "__main__":
   # Load fasthash
