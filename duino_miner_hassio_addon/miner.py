@@ -11,6 +11,7 @@ import signal
 stop_thread = False  # Flag to signal the thread to stop
 script, username, mining_key, efficiency, idx, *_rest = sys.argv
 log_level = _rest[0] if _rest else "minimal"
+miner_name = _rest[1] if len(_rest) > 1 else "hassio"
 
 def signal_handler(sig, frame):
   global stop_thread
@@ -58,7 +59,7 @@ def mine(username, mining_key, index, soc):
     except ImportError:
         fasthash_supported = False
 
-    identifier = socket.gethostname().split(".")[0]
+    identifier = miner_name
     eff_sleep = get_efficiency()
 
     # Pre-encode static parts to avoid repeated allocations in the hot loop

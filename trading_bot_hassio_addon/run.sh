@@ -5,14 +5,6 @@ echo "  Day Trading Bot - NYSE & LSE"
 echo "=========================================="
 echo ""
 
-echo "Creating Python virtual environment..."
-python3 -m venv ./venv
-echo "Activating virtual environment..."
-source ./venv/bin/activate
-
-echo "Installing dependencies..."
-pip3 install --upgrade pip --quiet
-pip3 install -r requirements.txt --quiet
 
 if [[ $LOCAL_DEPLOY != "true" ]]; then
   BROKER=$(bashio::config 'broker')
@@ -130,7 +122,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Starting Trading Bot..."
-python3 main.py \
+python3 -u main.py \
   --broker "$BROKER" \
   --api-key "$API_KEY" \
   --api-secret "$API_SECRET" \

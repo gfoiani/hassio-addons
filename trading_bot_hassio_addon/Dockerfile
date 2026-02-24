@@ -30,6 +30,8 @@ COPY ./main.py /usr/src/app/
 COPY ./requirements.txt /usr/src/app/
 COPY ./trading/ /usr/src/app/trading/
 
+RUN pip3 install --no-cache-dir -r /usr/src/app/requirements.txt
+
 RUN chmod a+x /usr/src/app/run.sh
 
 CMD ["bash", "/usr/src/app/run.sh"]

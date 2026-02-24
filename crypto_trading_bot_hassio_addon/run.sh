@@ -32,7 +32,7 @@ echo "Check interval:     ${CHECK_INTERVAL}s"
 echo "Cooldown:           ${COOLDOWN_MINUTES}m"
 echo ""
 
-exec python3 main.py \
+exec python3 -u main.py \
   --api-key "${API_KEY:-}" \
   --api-secret "${API_SECRET:-}" \
   --paper-trading "${PAPER_TRADING:-true}" \
