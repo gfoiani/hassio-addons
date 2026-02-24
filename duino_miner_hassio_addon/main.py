@@ -18,7 +18,7 @@ log_level = _rest[0] if _rest else "minimal"
 MINER_SCRIPT = "miner.py"
 
 def run_script(script_name, username, mining_key, efficiency, thread_index, log_level):
-  subprocess.run(["python3", script_name, username, mining_key, efficiency, thread_index, log_level])
+  subprocess.run(["python3", "-u", script_name, username, mining_key, efficiency, thread_index, log_level])
 
 if __name__ == "__main__":
   # Load fasthash
