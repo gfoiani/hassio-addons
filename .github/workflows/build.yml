@@ -1,0 +1,124 @@
+name: Build & Publish Add-ons
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crypto_trading_bot_hassio_addon/**"
+      - "trading_bot_hassio_addon/**"
+      - "duino_miner_hassio_addon/**"
+  workflow_dispatch:
+
+jobs:
+  # ── Detect which addons changed ──────────────────────────────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      crypto: ${{ steps.filter.outputs.crypto }}
+      trading: ${{ steps.filter.outputs.trading }}
+      duino: ${{ steps.filter.outputs.duino }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            crypto:
+              - "crypto_trading_bot_hassio_addon/**"
+            trading:
+              - "trading_bot_hassio_addon/**"
+            duino:
+              - "duino_miner_hassio_addon/**"
+
+  # ── Crypto Trading Bot (Binance) ─────────────────────────────────────────
+  build-crypto:
+    name: crypto-trading-bot / ${{ matrix.arch }}
+    needs: changes
+    if: needs.changes.outputs.crypto == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, amd64, armv7, armhf]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: home-assistant/builder@2024.03.5
+        with:
+          args: >-
+            --${{ matrix.arch }}
+            --target /data/crypto_trading_bot_hassio_addon
+            --docker-hub ghcr.io/${{ github.repository_owner }}
+
+  # ── Day Trading Bot (NYSE/LSE) ───────────────────────────────────────────
+  build-trading:
+    name: day-trading-bot / ${{ matrix.arch }}
+    needs: changes
+    if: needs.changes.outputs.trading == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, amd64, armv7, armhf]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: home-assistant/builder@2024.03.5
+        with:
+          args: >-
+            --${{ matrix.arch }}
+            --target /data/trading_bot_hassio_addon
+            --docker-hub ghcr.io/${{ github.repository_owner }}
+
+  # ── Duino Coin Miner ─────────────────────────────────────────────────────
+  build-duino:
+    name: duco-miner / ${{ matrix.arch }}
+    needs: changes
+    if: needs.changes.outputs.duino == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, amd64, armv7, armhf]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: home-assistant/builder@2024.03.5
+        with:
+          args: >-
+            --${{ matrix.arch }}
+            --target /data/duino_miner_hassio_addon
+            --docker-hub ghcr.io/${{ github.repository_owner }}

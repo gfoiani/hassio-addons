@@ -1,7 +1,8 @@
 name: "Day Trading Bot"
 description: "Automated day trading bot for NYSE and LSE. Supports XTB (xAPI) and Directa SIM brokers."
-version: "1.0.0"
+version: "1.0.1"
 slug: "day-trading-bot"
+image: "ghcr.io/gfoiani/day-trading-bot-{arch}"
 init: false
 arch:
   - aarch64
