@@ -1,0 +1,40 @@
+configuration:
+  api_key:
+    name: Binance API Key
+    description: API key from your Binance account (Settings → API Management).
+  api_secret:
+    name: Binance API Secret
+    description: API secret paired with the key above. Keep this private.
+  paper_trading:
+    name: Paper Trading (Testnet)
+    description: "true = Binance Testnet, no real money. false = LIVE trading with real funds."
+  symbols:
+    name: Trading Symbols
+    description: "Comma-separated Binance Spot pairs. Testnet: BTCUSDT,ETHUSDT — Live EU/IT: BTCUSDC,ETHUSDC"
+  timeframe:
+    name: Timeframe (minutes)
+    description: "Candle size used by the strategy. Recommended: 15 (more signals), 30 (balanced), 60 (clearer trends)."
+  max_position_value_usdt:
+    name: Max Position Value (USDT)
+    description: Maximum amount in USDT to allocate per trade.
+  stop_loss_pct:
+    name: Stop Loss (%)
+    description: "Percentage below entry price to set the stop loss. Example: 2.0 = −2%."
+  take_profit_pct:
+    name: Take Profit (%)
+    description: "Percentage above entry price to set the take profit. Example: 4.0 = +4%."
+  max_daily_loss_pct:
+    name: Max Daily Loss (%)
+    description: "Bot stops trading for the day if total loss exceeds this percentage of portfolio. Example: 5.0 = −5%."
+  check_interval:
+    name: Check Interval (seconds)
+    description: "How often the bot checks for new signals. Minimum recommended: 60."
+  cooldown_minutes:
+    name: Cooldown (minutes)
+    description: Minimum wait time between two trades on the same symbol.
+  telegram_relay_url:
+    name: Telegram Relay URL
+    description: URL of the Render relay service for Telegram notifications. Leave empty to disable.
+  telegram_api_key:
+    name: Telegram Relay API Key
+    description: Shared secret key between the bot and the relay service (X-API-Key header).

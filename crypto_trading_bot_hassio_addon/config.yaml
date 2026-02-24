@@ -1,6 +1,6 @@
 name: "Crypto Trading Bot (Binance)"
 description: "Intraday crypto trading on Binance Spot with Momentum strategy and Telegram notifications"
-version: "1.0.6"
+version: "1.0.7"
 slug: "crypto-trading-bot"
 image: "ghcr.io/gfoiani/crypto-trading-bot-{arch}"
 init: false
@@ -19,7 +19,7 @@ options:
   api_secret: ""
   paper_trading: true
   symbols: "BTCUSDC,ETHUSDC"
-  timeframe: "15"
+  timeframe: 15
   max_position_value_usdt: 100
   stop_loss_pct: 2.0
   take_profit_pct: 4.0
@@ -33,7 +33,7 @@ schema:
   api_secret: str
   paper_trading: bool
   symbols: str
-  timeframe: list("15"|"30"|"60")
+  timeframe: int
   max_position_value_usdt: float
   stop_loss_pct: float
   take_profit_pct: float

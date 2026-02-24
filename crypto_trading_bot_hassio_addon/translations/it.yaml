@@ -1,0 +1,40 @@
+configuration:
+  api_key:
+    name: Binance API Key
+    description: Chiave API del tuo account Binance (Impostazioni → Gestione API).
+  api_secret:
+    name: Binance API Secret
+    description: Chiave segreta associata all'API Key. Non condividere mai questo valore.
+  paper_trading:
+    name: Paper Trading (Testnet)
+    description: "true = Binance Testnet, nessun soldo reale. false = Trading LIVE con soldi reali."
+  symbols:
+    name: Simboli di Trading
+    description: "Coppie Binance Spot separate da virgola. Testnet: BTCUSDT,ETHUSDT — Live EU/IT: BTCUSDC,ETHUSDC"
+  timeframe:
+    name: Timeframe (minuti)
+    description: "Dimensione delle candele usata dalla strategia. Consigliati: 15 (più segnali), 30 (bilanciato), 60 (trend più solidi)."
+  max_position_value_usdt:
+    name: Valore Massimo per Posizione (USDT)
+    description: Importo massimo in USDT da allocare per ogni trade.
+  stop_loss_pct:
+    name: Stop Loss (%)
+    description: "Percentuale sotto il prezzo di entrata per lo stop loss. Esempio: 2.0 = −2%."
+  take_profit_pct:
+    name: Take Profit (%)
+    description: "Percentuale sopra il prezzo di entrata per il take profit. Esempio: 4.0 = +4%."
+  max_daily_loss_pct:
+    name: Perdita Giornaliera Massima (%)
+    description: "Il bot smette di fare trading se la perdita totale del giorno supera questa percentuale del portafoglio. Esempio: 5.0 = −5%."
+  check_interval:
+    name: Intervallo di Controllo (secondi)
+    description: "Con quale frequenza il bot controlla nuovi segnali. Minimo consigliato: 60."
+  cooldown_minutes:
+    name: Cooldown (minuti)
+    description: Tempo minimo di attesa tra due trade sullo stesso simbolo.
+  telegram_relay_url:
+    name: URL Relay Telegram
+    description: URL del servizio relay su Render per le notifiche Telegram. Lascia vuoto per disabilitare.
+  telegram_api_key:
+    name: Chiave API Relay Telegram
+    description: Chiave segreta condivisa tra il bot e il relay (header X-API-Key). Deve corrispondere a RELAY_API_KEY su Render.
