@@ -1,5 +1,7 @@
 #!/usr/bin/with-contenv bashio
 
+set +u
+
 echo "=========================================="
 echo "  Day Trading Bot - NYSE & LSE"
 echo "=========================================="
@@ -86,12 +88,6 @@ if [[ "$BROKER" == "directa" && "${DIRECTA_HOST:-127.0.0.1}" == "127.0.0.1" ]]; 
       echo "Darwin is ready (${i}s elapsed)."
       break
     fi
-    # Abort early if Darwin exited unexpectedly
-    if ! kill -0 "$DCL_PID" 2>/dev/null; then
-      echo "ERROR: Darwin exited unexpectedly. Last 20 lines of $DCL_LOG:"
-      tail -20 "$DCL_LOG"
-      exit 1
-    fi
     sleep 1
   done
 
@@ -112,10 +108,11 @@ fi
 # --------------------------------------------------------------------------
 cleanup() {
   echo "Shutting down..."
-  if [[ -n "$DCL_PID" ]] && kill -0 "$DCL_PID" 2>/dev/null; then
-    echo "Stopping Darwin CommandLine (PID $DCL_PID)..."
-    kill "$DCL_PID"
-    wait "$DCL_PID" 2>/dev/null
+  # DCL.jar is a launcher that exits after spawning Engine.jar; find and stop the engine process
+  ENGINE_PID=$(pgrep -f "directa.standalone.StartEngine" 2>/dev/null | head -1)
+  if [[ -n "$ENGINE_PID" ]]; then
+    echo "Stopping Darwin Engine (PID $ENGINE_PID)..."
+    kill "$ENGINE_PID" 2>/dev/null
     echo "Darwin stopped."
   fi
 }

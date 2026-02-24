@@ -1,5 +1,4 @@
-# Core
-pandas>=2.0.0
+# Core (pandas and numpy installed via Alpine packages in Dockerfile — no pip compilation needed)
 pytz>=2024.1
 requests>=2.31.0
 
@@ -7,6 +6,3 @@ requests>=2.31.0
 websocket-client>=1.8.0
 
 # Directa broker uses only Python stdlib (socket) – no extra dependency
-
-# Market data fallback
-yfinance>=0.2.40

@@ -8,6 +8,8 @@ Both exchanges observe local public holidays (not modelled here for simplicity;
 users should monitor holiday calendars independently).
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime, time
 from typing import Optional

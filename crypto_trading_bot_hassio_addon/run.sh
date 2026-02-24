@@ -1,5 +1,7 @@
 #!/usr/bin/with-contenv bashio
 
+set +u
+
 echo "=========================================="
 echo "  Crypto Trading Bot - Binance Spot"
 echo "=========================================="
