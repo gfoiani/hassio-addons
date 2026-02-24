@@ -48,7 +48,9 @@ class Fasthash:
             return
         # else: unknown OS → library_name and url stay None
 
-        if library_name and not Path(library_name).is_file():
+        MODULE_NAME = "libducohasher.so"
+
+        if library_name and not Path(MODULE_NAME).is_file():
             if url is None:
                 print(f"Fasthash: no download URL for {system()} {machine()}, using pure-Python fallback")
                 return
@@ -56,8 +58,8 @@ class Fasthash:
             try:
                 r = requests.get(url, timeout=10)
                 r.raise_for_status()
-                with open(library_name, 'wb') as f:
+                with open(MODULE_NAME, 'wb') as f:
                     f.write(r.content)
-                print(f"Fasthash downloaded: {library_name}")
+                print(f"Fasthash downloaded: {library_name} -> {MODULE_NAME}")
             except Exception as e:
                 print(f"Fasthash download failed: {e} — using pure-Python fallback")

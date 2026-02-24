@@ -1,6 +1,6 @@
 name: "Duino coin miner"
 description: "Mine DUCO in Home Assistant"
-version: "1.4.2"
+version: "1.4.3"
 slug: "duco-miner"
 image: "ghcr.io/gfoiani/duco-miner-{arch}"
 init: false
