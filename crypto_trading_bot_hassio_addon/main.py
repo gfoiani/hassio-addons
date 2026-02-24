@@ -42,7 +42,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--api-key",                  default=env("API_KEY", ""))
     p.add_argument("--api-secret",               default=env("API_SECRET", ""))
     p.add_argument("--paper-trading",            default=env("PAPER_TRADING", "true"))
-    p.add_argument("--symbols",                  default=env("SYMBOLS", "BTCUSDT,ETHUSDT"))
+    p.add_argument("--symbols",                  default=env("SYMBOLS", "BTCUSDC,ETHUSDC"))
     p.add_argument("--timeframe",                default=env("TIMEFRAME", "15"))
     p.add_argument("--max-position-value-usdt",  default=env("MAX_POSITION_VALUE_USDT", "100"))
     p.add_argument("--stop-loss-pct",            default=env("STOP_LOSS_PCT", "2.0"))

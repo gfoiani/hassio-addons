@@ -23,7 +23,7 @@ logger = logging.getLogger("crypto_bot.telegram")
 class TelegramNotifier:
     """Sends notifications and polls commands from the Render relay service."""
 
-    def __init__(self, relay_url: str, api_key: str, timeout: int = 10):
+    def __init__(self, relay_url: str, api_key: str, timeout: int = 30):
         self._relay_url = relay_url.rstrip("/")
         self._api_key = api_key
         self._timeout = timeout
@@ -68,6 +68,13 @@ class TelegramNotifier:
             return
 
         def _loop():
+            # Immediate ping to wake the Render instance on startup
+            url = f"{self._relay_url}/health"
+            try:
+                with urllib.request.urlopen(urllib.request.Request(url, method="GET"), timeout=self._timeout) as resp:
+                    logger.debug(f"Keepalive initial ping OK (HTTP {resp.status})")
+            except Exception as exc:
+                logger.debug(f"Keepalive initial ping failed: {exc}")
             while True:
                 time.sleep(interval)
                 url = f"{self._relay_url}/health"

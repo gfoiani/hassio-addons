@@ -36,7 +36,7 @@ exec python3 -u main.py \
   --api-key "${API_KEY:-}" \
   --api-secret "${API_SECRET:-}" \
   --paper-trading "${PAPER_TRADING:-true}" \
-  --symbols "${SYMBOLS:-BTCUSDT,ETHUSDT}" \
+  --symbols "${SYMBOLS:-BTCUSDC,ETHUSDC}" \
   --timeframe "${TIMEFRAME:-15}" \
   --max-position-value-usdt "${MAX_POSITION_VALUE_USDT:-100}" \
   --stop-loss-pct "${STOP_LOSS_PCT:-2.0}" \
