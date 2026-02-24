@@ -1,0 +1,19 @@
+configuration:
+  username:
+    name: Username Duino-Coin
+    description: Il tuo nome utente dell'account Duino-Coin.
+  mining_key:
+    name: Chiave di Mining
+    description: "La tua chiave di mining Duino-Coin (impostabile nelle impostazioni dell'account). Usa None se non è stata configurata."
+  efficiency:
+    name: Efficienza (%)
+    description: "Limite di utilizzo della CPU per il mining. 100 = velocità massima, 50 = metà velocità. Valori più bassi riducono il calore e il carico sulla CPU."
+  threads_count:
+    name: Thread
+    description: "Numero di thread di mining paralleli. Imposta il numero di core CPU per le prestazioni massime. Inizia con 1 per testare."
+  log_level:
+    name: Livello di Log
+    description: "minimal = solo output essenziale. verbose = statistiche di mining dettagliate per ogni thread."
+  miner_name:
+    name: Nome Miner
+    description: "Identificatore mostrato nel dashboard Duino-Coin per questo miner. Utile se esegui più miner contemporaneamente."

@@ -1,0 +1,58 @@
+configuration:
+  broker:
+    name: Broker
+    description: "Broker da utilizzare. Opzioni: xtb (XTB xAPI, Europa/Italia, CFD) oppure directa (Directa SIM, Italia, regime amministrato)."
+  api_key:
+    name: API Key / User ID
+    description: "XTB: ID account numerico. Directa: il tuo user ID Directa."
+  api_secret:
+    name: API Secret / Password
+    description: "XTB: password dell'account. Directa: password Directa (usata per avviare Darwin CommandLine automaticamente)."
+  paper_trading:
+    name: Paper Trading
+    description: "true = account demo, nessun soldo reale. Directa: avvia Darwin in modalità -test. false = trading LIVE con soldi reali."
+  exchanges:
+    name: Borse
+    description: "Lista separata da virgola delle borse da monitorare. Supportate: NYSE, LSE."
+  symbols_nyse:
+    name: Simboli NYSE
+    description: "Titoli da tradare su NYSE. Formato XTB: AAPL.US, MSFT.US — Formato Directa: .AAPL, .MSFT"
+  symbols_lse:
+    name: Simboli LSE
+    description: "Titoli da tradare su LSE. Formato XTB: BP.UK, VOD.UK — Formato Directa: BP, VOD"
+  directa_host:
+    name: Host Directa
+    description: "Indirizzo IP della macchina che esegue Darwin CommandLine. Usa 127.0.0.1 (default) se Darwin gira nel container."
+  max_position_value:
+    name: Valore Massimo per Posizione
+    description: Capitale massimo da allocare per ogni singola posizione (nella valuta del conto).
+  stop_loss_pct:
+    name: Stop Loss (%)
+    description: "Percentuale sotto il prezzo di entrata per lo stop loss. Esempio: 2.0 = −2%."
+  take_profit_pct:
+    name: Take Profit (%)
+    description: "Percentuale sopra il prezzo di entrata per il take profit. Esempio: 4.0 = +4%."
+  max_daily_loss_pct:
+    name: Perdita Giornaliera Massima (%)
+    description: "Il bot smette di tradare se la perdita totale del giorno supera questa percentuale del portafoglio. Esempio: 5.0 = −5%."
+  strategy:
+    name: Strategia
+    description: "Strategia di trading. orb = Opening Range Breakout (trend-following all'apertura). momentum = incrocio EMA + RSI."
+  orb_minutes:
+    name: Minuti ORB
+    description: "Minuti dopo l'apertura usati per definire l'opening range (solo strategia ORB). Consigliato: 15."
+  pre_market_minutes:
+    name: Minuti Pre-Market
+    description: Minuti prima dell'apertura del mercato per iniziare il monitoraggio. Consigliato: 30.
+  close_minutes:
+    name: Minuti alla Chiusura
+    description: Minuti prima della chiusura del mercato per chiudere automaticamente tutte le posizioni aperte. Consigliato: 15.
+  check_interval:
+    name: Intervallo di Controllo (secondi)
+    description: "Con quale frequenza il bot controlla lo stato del mercato e i segnali. Consigliato: 30."
+  telegram_relay_url:
+    name: URL Relay Telegram
+    description: URL del servizio relay su Render per le notifiche Telegram. Lascia vuoto per disabilitare.
+  telegram_api_key:
+    name: Chiave API Relay Telegram
+    description: Chiave segreta condivisa tra il bot e il relay (header X-API-Key). Deve corrispondere a RELAY_API_KEY su Render.
