@@ -63,7 +63,7 @@ def mine(username, mining_key, index, soc):
 
     # Pre-encode static parts to avoid repeated allocations in the hot loop
     job_request = f"JOB,{username},LOW,{mining_key}".encode("utf-8")
-    result_suffix = f",{SOFTWARE_NAME},{identifier}".encode("utf-8")
+    result_suffix = f",{SOFTWARE_NAME},{identifier} Thread {index}".encode("utf-8")
 
     while not stop_thread:
         soc.send(job_request)
