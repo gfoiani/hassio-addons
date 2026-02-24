@@ -30,4 +30,4 @@ COPY ./trading/ /usr/src/app/trading/
 
 RUN chmod a+x /usr/src/app/run.sh
 
-CMD ["bash", "/usr/src/app/run.sh"]
+CMD ["/usr/src/app/run.sh"]
