@@ -10,7 +10,6 @@ RUN \
   py3-numpy \
   py3-pandas \
   py3-aiohttp \
-  py3-pycryptodome \
   gcc \
   musl-dev \
   python3-dev \

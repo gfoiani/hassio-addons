@@ -1,3 +1,4 @@
 python-binance>=1.0.19
+pycryptodome>=3.15.0
 pandas>=1.0.0
 pytz>=2024.1

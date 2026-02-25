@@ -4,8 +4,9 @@ FROM $BUILD_FROM
 # Install system dependencies
 # py3-pandas/numpy/lxml  – pre-compiled Alpine packages; avoids slow QEMU compilation of C extensions
 #                          on armv7/armhf (pandas from source via QEMU can take 20+ minutes)
-# openjdk11-jre-headless – Java runtime for Directa Darwin CommandLine (DCL.jar)
-# curl                   – used by run.sh to download DCL.jar on first run
+# openjdk11-jre-headless – Java runtime for Directa Darwin Engine (amd64/aarch64 only)
+# openjdk8-jre-headless  – Java runtime for armv7/armhf (openjdk11 not available on 32-bit Alpine)
+# curl                   – used by run.sh to download Engine.jar on first run
 # nc                     – already provided by busybox in Alpine
 RUN \
   apk add --no-cache \
@@ -21,8 +22,12 @@ RUN \
   python3-dev \
   libffi-dev \
   openssl-dev \
-  openjdk11-jre-headless \
-  curl
+  curl && \
+  ARCH=$(uname -m) && \
+  case "$ARCH" in \
+    armv7l|armv6l) apk add --no-cache openjdk8-jre-headless ;; \
+    *)             apk add --no-cache openjdk11-jre-headless ;; \
+  esac
 
 RUN mkdir -p /usr/src/app /data
 

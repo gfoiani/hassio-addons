@@ -6,7 +6,8 @@ CONTAINER_NAME="crypto-trader"
 
 echo "Building $IMAGE_NAME..."
 docker build \
-  --build-arg BUILD_FROM=python:3.11-alpine \
+  --platform=linux/amd64 \
+  --build-arg BUILD_FROM=homeassistant/amd64-base:3.13 \
   -t "$IMAGE_NAME:latest" .
 
 echo "Removing existing container (if any)..."
