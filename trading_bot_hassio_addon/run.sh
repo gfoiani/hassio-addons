@@ -42,42 +42,51 @@ echo "Max daily loss:   ${MAX_DAILY_LOSS_PCT}%"
 echo ""
 
 # --------------------------------------------------------------------------
-# Directa: start Darwin CommandLine (DCL.jar) as a subprocess
+# Directa: start Darwin Engine directly (bypassing DCL.jar launcher)
 #
 # Darwin is auto-started inside the container when directa_host=127.0.0.1
 # (the default). If directa_host points to an external machine, Darwin is
 # assumed to be already running there and auto-start is skipped.
 # --------------------------------------------------------------------------
-DCL_PID=""
+ENGINE_PID=""
 
 if [[ "$BROKER" == "directa" && "${DIRECTA_HOST:-127.0.0.1}" == "127.0.0.1" ]]; then
-  DCL_JAR="/data/DCL.jar"
-  DCL_LOG="/data/darwin.log"
-  DCL_URL="https://app1.directatrading.com/dcl/RilascioDCL/DCL.jar"
+  ENGINE_DIR="/root/.directa/engine"
+  ENGINE_JAR="$ENGINE_DIR/Engine.jar"
+  GSON_JAR="$ENGINE_DIR/gson.jar"
+  ENGINE_LOG="/data/darwin.log"
+  DIRECTA_BASE="https://app1.directatrading.com/dcl/RilascioDCL"
 
-  # Download DCL.jar on first run; cached in /data for subsequent restarts
-  if [ ! -f "$DCL_JAR" ]; then
-    echo "Downloading Darwin CommandLine (DCL.jar)..."
-    if ! curl -fsSL -o "$DCL_JAR" "$DCL_URL"; then
-      echo "ERROR: Failed to download DCL.jar from $DCL_URL"
-      echo "       Check your internet connection or copy DCL.jar manually to /data/DCL.jar"
+  mkdir -p "$ENGINE_DIR"
+
+  # Download Engine.jar and gson.jar on first run (ephemeral; re-downloads on restart)
+  if [ ! -f "$ENGINE_JAR" ]; then
+    echo "Downloading Directa Engine.jar..."
+    if ! curl -fsSL -o "$ENGINE_JAR" "$DIRECTA_BASE/Engine.jar"; then
+      echo "ERROR: Failed to download Engine.jar"
       exit 1
     fi
-    echo "DCL.jar downloaded and saved to $DCL_JAR"
-  else
-    echo "Using cached Darwin CommandLine from $DCL_JAR"
+  fi
+  if [ ! -f "$GSON_JAR" ]; then
+    echo "Downloading gson.jar..."
+    if ! curl -fsSL -o "$GSON_JAR" "$DIRECTA_BASE/gson.jar"; then
+      echo "ERROR: Failed to download gson.jar"
+      exit 1
+    fi
   fi
 
-  # Build DCL arguments: userId password [-test]
+  # Build flags and start Engine.jar directly (stdout/stderr captured in log)
   if [[ "${PAPER_TRADING:-true}" == "true" ]]; then
     echo "Directa Darwin:   starting in TEST environment (no real orders)"
-    java -jar "$DCL_JAR" "$API_KEY" "$API_SECRET" -test >> "$DCL_LOG" 2>&1 &
+    java -classpath "$ENGINE_JAR:$GSON_JAR" directa.standalone.StartEngine \
+      "$API_KEY" "$API_SECRET" -log -mc -test < /dev/null >> "$ENGINE_LOG" 2>&1 &
   else
     echo "Directa Darwin:   starting in LIVE environment ⚠️  REAL MONEY"
-    java -jar "$DCL_JAR" "$API_KEY" "$API_SECRET" >> "$DCL_LOG" 2>&1 &
+    java -classpath "$ENGINE_JAR:$GSON_JAR" directa.standalone.StartEngine \
+      "$API_KEY" "$API_SECRET" -log -mc < /dev/null >> "$ENGINE_LOG" 2>&1 &
   fi
-  DCL_PID=$!
-  echo "Darwin PID: $DCL_PID  (logs → $DCL_LOG)"
+  ENGINE_PID=$!
+  echo "Darwin Engine PID: $ENGINE_PID  (logs → $ENGINE_LOG)"
 
   # Wait until Darwin's trading socket (port 10002) accepts connections
   echo "Waiting for Darwin to be ready (up to 60s)..."
@@ -88,14 +97,20 @@ if [[ "$BROKER" == "directa" && "${DIRECTA_HOST:-127.0.0.1}" == "127.0.0.1" ]]; 
       echo "Darwin is ready (${i}s elapsed)."
       break
     fi
+    # Abort early if Engine.jar exited unexpectedly
+    if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
+      echo "ERROR: Darwin Engine exited unexpectedly. Last 20 lines of $ENGINE_LOG:"
+      tail -20 "$ENGINE_LOG"
+      exit 1
+    fi
     sleep 1
   done
 
   if [[ "$DARWIN_READY" == "false" ]]; then
     echo "ERROR: Darwin did not become ready within 60 seconds."
-    echo "Last 20 lines of $DCL_LOG:"
-    tail -20 "$DCL_LOG"
-    kill "$DCL_PID" 2>/dev/null
+    echo "Last 20 lines of $ENGINE_LOG:"
+    tail -20 "$ENGINE_LOG"
+    kill "$ENGINE_PID" 2>/dev/null
     exit 1
   fi
 
@@ -104,15 +119,14 @@ elif [[ "$BROKER" == "directa" ]]; then
 fi
 
 # --------------------------------------------------------------------------
-# Cleanup handler: stop Darwin when the bot exits
+# Cleanup handler: stop Darwin Engine when the bot exits
 # --------------------------------------------------------------------------
 cleanup() {
   echo "Shutting down..."
-  # DCL.jar is a launcher that exits after spawning Engine.jar; find and stop the engine process
-  ENGINE_PID=$(pgrep -f "directa.standalone.StartEngine" 2>/dev/null | head -1)
-  if [[ -n "$ENGINE_PID" ]]; then
+  if [[ -n "$ENGINE_PID" ]] && kill -0 "$ENGINE_PID" 2>/dev/null; then
     echo "Stopping Darwin Engine (PID $ENGINE_PID)..."
-    kill "$ENGINE_PID" 2>/dev/null
+    kill "$ENGINE_PID"
+    wait "$ENGINE_PID" 2>/dev/null
     echo "Darwin stopped."
   fi
 }

@@ -70,4 +70,11 @@ class MomentumStrategy:
             )
             return Signal.LONG
 
+        spread = (last["ema9"] - last["ema21"]) / last["ema21"] * 100
+        logger.info(
+            f"{symbol}: no signal | "
+            f"EMA9={last['ema9']:.4f} EMA21={last['ema21']:.4f} spread={spread:+.3f}% | "
+            f"RSI={last['rsi']:.1f} | "
+            f"price={last['close']:.4f}"
+        )
         return Signal.NONE
