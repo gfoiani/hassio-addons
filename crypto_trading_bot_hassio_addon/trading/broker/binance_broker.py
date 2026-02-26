@@ -245,10 +245,12 @@ class BinanceBroker(BrokerBase):
                 symbol=symbol,
                 side=Client.SIDE_SELL,
                 quantity=qty,
-                price=str(tp_price),           # LIMIT leg (take profit)
-                stopPrice=str(sl_price),       # stop trigger
-                stopLimitPrice=str(sl_limit_price),  # limit price after stop triggers
-                stopLimitTimeInForce=Client.TIME_IN_FORCE_GTC,
+                aboveType="LIMIT_MAKER",           # TP leg (above current price)
+                abovePrice=str(tp_price),
+                belowType="STOP_LOSS_LIMIT",       # SL leg (below current price)
+                belowStopPrice=str(sl_price),      # stop trigger
+                belowPrice=str(sl_limit_price),    # limit price after stop triggers
+                belowTimeInForce=Client.TIME_IN_FORCE_GTC,
             )
             oco_id = str(oco["orderListId"])
             logger.info(
