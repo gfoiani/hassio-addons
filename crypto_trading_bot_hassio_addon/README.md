@@ -124,10 +124,11 @@ Entry conditions (**LONG only** — spot trading, no shorting):
 3. Minimum 25 candles required before evaluating signals
 
 Once a LONG entry is triggered:
+
 - A **market BUY** order is placed immediately
 - A **Binance OCO order** (SELL) is placed with:
-  - STOP_LOSS_LIMIT leg at `entry_price × (1 − stop_loss_pct / 100)`
-  - LIMIT leg at `entry_price × (1 + take_profit_pct / 100)`
+  - `LIMIT_MAKER` leg (take-profit) at `entry_price × (1 + take_profit_pct / 100)`
+  - `STOP_LOSS_LIMIT` leg (stop-loss) at `entry_price × (1 − stop_loss_pct / 100)`
 - If either leg fills, the other is cancelled automatically by Binance
 
 ### Cooldown
@@ -164,7 +165,8 @@ Files written to `/data` (survive restarts):
 | `crypto_trades.log` | Append-only trade history |
 
 Trade log format:
-```
+
+```text
 2025-01-15 10:23:00 UTC | ENTER | BTCUSDT      | LONG  | qty=0.002        | entry=42500.00000000 | SL=41650.00000000 | TP=44100.00000000 | cost=85.00 USDT
 2025-01-15 11:45:00 UTC | EXIT  | BTCUSDT      | LONG  | qty=0.002        | entry=42500.00000000 | exit=44100.00000000 | P&L=+3.200000 USDT | reason=take-profit
 ```

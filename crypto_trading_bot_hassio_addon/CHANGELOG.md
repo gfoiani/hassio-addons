@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.11
+
+- Fix OCO order placement: updated to new Binance API format (`aboveType`/`belowType` parameters required by `POST /api/v3/orderList/oco`)
+
 ## 1.0.0
 
 - Initial release

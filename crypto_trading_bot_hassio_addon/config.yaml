@@ -1,6 +1,6 @@
 name: "Crypto Trading Bot (Binance)"
 description: "Intraday crypto trading on Binance Spot with Momentum strategy and Telegram notifications"
-version: "1.0.10"
+version: "1.0.11"
 slug: "crypto-trading-bot"
 image: "ghcr.io/gfoiani/crypto-trading-bot-{arch}"
 init: false
