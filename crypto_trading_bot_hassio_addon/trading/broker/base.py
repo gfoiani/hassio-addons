@@ -65,8 +65,9 @@ class BrokerBase(ABC):
         """
 
     @abstractmethod
-    def has_pending_oco(self, symbol: str, oco_order_list_id: str) -> bool:
+    def get_oco_result(self, symbol: str, oco_order_list_id: str) -> Optional[dict]:
         """
-        Check whether the OCO order is still open (position not yet closed by SL/TP).
-        Returns False if the OCO was triggered (position closed server-side).
+        Check whether the OCO order has fired.
+        Returns None if still EXECUTING (position open) or on error.
+        Returns {"fill_price": float, "reason": "stop_loss"|"take_profit"} when fired.
         """
