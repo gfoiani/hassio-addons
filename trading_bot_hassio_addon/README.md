@@ -74,12 +74,13 @@ The bot communicates with the **Darwin API** via TCP sockets. **Darwin CommandLi
 
 The addon will:
 
-- Download `DCL.jar` automatically from Directa's servers on first startup (cached in `/data/` for subsequent restarts).
-- Launch Darwin CommandLine as a background process before the bot starts.
+- Download `Engine.jar` and `gson.jar` automatically from Directa's servers on **every startup** to ensure the latest version is always used.
+- Launch Darwin as a background process before the bot starts.
+- Stream Darwin output to the addon logs in real-time.
 - Wait up to 60 seconds for Darwin to be ready (port 10002).
 - Stop Darwin cleanly when the bot shuts down.
 
-Darwin logs are written to `/data/darwin.log`.
+Darwin logs are written to `/data/darwin.log` (truncated at each startup to keep sessions isolated).
 
 ### Darwin API ports
 

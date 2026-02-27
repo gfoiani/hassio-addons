@@ -1,6 +1,7 @@
 #!/usr/bin/with-contenv bashio
 
 set +u
+set +H   # disable history expansion (prevents ! in passwords from being misinterpreted)
 
 echo "=========================================="
 echo "  Day Trading Bot - NYSE & LSE"
@@ -59,21 +60,24 @@ if [[ "$BROKER" == "directa" && "${DIRECTA_HOST:-127.0.0.1}" == "127.0.0.1" ]]; 
 
   mkdir -p "$ENGINE_DIR"
 
-  # Download Engine.jar and gson.jar on first run (ephemeral; re-downloads on restart)
-  if [ ! -f "$ENGINE_JAR" ]; then
-    echo "Downloading Directa Engine.jar..."
-    if ! curl -fsSL -o "$ENGINE_JAR" "$DIRECTA_BASE/Engine.jar"; then
-      echo "ERROR: Failed to download Engine.jar"
-      exit 1
-    fi
+  # Always download Engine.jar and gson.jar to ensure the latest version
+  echo "Downloading Directa Engine.jar..."
+  if ! curl -fsSL -o "$ENGINE_JAR" "$DIRECTA_BASE/Engine.jar"; then
+    echo "ERROR: Failed to download Engine.jar"
+    exit 1
   fi
-  if [ ! -f "$GSON_JAR" ]; then
-    echo "Downloading gson.jar..."
-    if ! curl -fsSL -o "$GSON_JAR" "$DIRECTA_BASE/gson.jar"; then
-      echo "ERROR: Failed to download gson.jar"
-      exit 1
-    fi
+  echo "Downloading gson.jar..."
+  if ! curl -fsSL -o "$GSON_JAR" "$DIRECTA_BASE/gson.jar"; then
+    echo "ERROR: Failed to download gson.jar"
+    exit 1
   fi
+
+  # Truncate log so this session's output is isolated from previous runs
+  > "$ENGINE_LOG"
+
+  # Stream Darwin log to stdout in real-time for visibility
+  tail -f "$ENGINE_LOG" &
+  TAIL_PID=$!
 
   # Build flags and start Engine.jar directly (stdout/stderr captured in log)
   if [[ "${PAPER_TRADING:-true}" == "true" ]]; then
@@ -94,22 +98,25 @@ if [[ "$BROKER" == "directa" && "${DIRECTA_HOST:-127.0.0.1}" == "127.0.0.1" ]]; 
   for i in $(seq 1 60); do
     if nc -z 127.0.0.1 10002 2>/dev/null; then
       DARWIN_READY=true
+      kill "$TAIL_PID" 2>/dev/null
       echo "Darwin is ready (${i}s elapsed)."
       break
     fi
     # Abort early if Engine.jar exited unexpectedly
     if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
-      echo "ERROR: Darwin Engine exited unexpectedly. Last 20 lines of $ENGINE_LOG:"
-      tail -20 "$ENGINE_LOG"
+      sleep 1  # let tail flush remaining output
+      kill "$TAIL_PID" 2>/dev/null
+      echo "ERROR: Darwin Engine exited unexpectedly. Full $ENGINE_LOG:"
+      cat "$ENGINE_LOG"
       exit 1
     fi
     sleep 1
   done
 
   if [[ "$DARWIN_READY" == "false" ]]; then
-    echo "ERROR: Darwin did not become ready within 60 seconds."
-    echo "Last 20 lines of $ENGINE_LOG:"
-    tail -20 "$ENGINE_LOG"
+    kill "$TAIL_PID" 2>/dev/null
+    echo "ERROR: Darwin did not become ready within 60 seconds. Full $ENGINE_LOG:"
+    cat "$ENGINE_LOG"
     kill "$ENGINE_PID" 2>/dev/null
     exit 1
   fi
