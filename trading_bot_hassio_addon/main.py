@@ -10,6 +10,7 @@ Reads configuration from:
 import argparse
 import logging
 import os
+import pathlib
 import signal
 import sys
 
@@ -20,11 +21,19 @@ from trading.bot import TradingBot
 # Logging
 # ---------------------------------------------------------------------------
 
+_LOG_FILE = pathlib.Path("/data/trading_bot.log")
+_handlers: list = [logging.StreamHandler(sys.stdout)]
+try:
+    _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _handlers.append(logging.FileHandler(_LOG_FILE, encoding="utf-8"))
+except OSError:
+    pass  # /data not writable (e.g. local dev without volume mount)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[logging.StreamHandler(sys.stdout)],
+    handlers=_handlers,
 )
 logger = logging.getLogger("trading_bot")
 

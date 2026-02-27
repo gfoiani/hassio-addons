@@ -49,6 +49,8 @@ logger = logging.getLogger("trading_bot.bot")
 # /data is the standard HA addon persistent storage directory.
 # In local Docker testing it is mounted as a named volume (see deploy_local.sh).
 STORAGE_DIR = Path("/data")
+
+_HEARTBEAT_INTERVAL = 1800  # seconds between "still alive" log lines (30 min)
 POSITIONS_FILE = STORAGE_DIR / "positions.json"
 TRADES_LOG_FILE = STORAGE_DIR / "trades.log"
 
@@ -103,6 +105,9 @@ class TradingBot:
         # Manual halt flag set via /halt Telegram command
         self._manual_halt: bool = False
 
+        # Timestamp of last heartbeat log (monotonic)
+        self._last_heartbeat: float = 0.0
+
         # Ensure storage directory exists
         STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -116,11 +121,23 @@ class TradingBot:
         if not self._broker.connect():
             raise RuntimeError("Failed to connect to broker. Check credentials.")
 
+        self._load_positions()
         self._running = True
         self._telegram.start_keepalive()
+
+        nyse_syms = ", ".join(self._config.symbols_nyse) or "—"
+        lse_syms  = ", ".join(self._config.symbols_lse)  or "—"
         logger.info(
             f"Trading bot started. Exchanges: {list(self._exchange_states.keys())} | "
             f"Strategy: {self._config.strategy}"
+        )
+        self._telegram.notify(
+            f"🚀 <b>Day Trading Bot started</b>\n"
+            f"Broker: {self._config.broker.upper()} | "
+            f"Mode: {'📝 Paper' if self._config.paper_trading else '💰 Live'}\n"
+            f"Strategy: {self._config.strategy.upper()}\n"
+            f"NYSE: {nyse_syms}\n"
+            f"LSE: {lse_syms}"
         )
 
         while self._running:
@@ -133,6 +150,7 @@ class TradingBot:
     def shutdown(self):
         """Gracefully close all positions and stop the loop."""
         logger.info("Shutdown requested – closing all positions …")
+        self._telegram.notify("🛑 <b>Day Trading Bot shutting down.</b> Closing all open positions…")
         self._running = False
         try:
             self._broker.close_all_positions()
@@ -150,6 +168,20 @@ class TradingBot:
     # ------------------------------------------------------------------
 
     def _tick(self):
+        # Periodic heartbeat so the log shows the bot is alive
+        now_ts = time.monotonic()
+        if now_ts - self._last_heartbeat >= _HEARTBEAT_INTERVAL:
+            self._last_heartbeat = now_ts
+            open_count = sum(
+                1 for p in self._positions.values()
+                if p.status == PositionStatus.OPEN
+            )
+            phases = {n: s.phase for n, s in self._exchange_states.items()}
+            logger.info(
+                f"[HEARTBEAT] Bot alive | open positions: {open_count} | "
+                f"phases: {phases} | halt: {self._manual_halt}"
+            )
+
         # Process Telegram commands first
         self._process_telegram_commands()
 
@@ -287,6 +319,12 @@ class TradingBot:
                     continue
                 last = bars.iloc[-1]
                 self._strategy.update_orb(sym, float(last["high"]), float(last["low"]))
+                orb_high = self._strategy.orb_high(sym)
+                orb_low  = self._strategy.orb_low(sym)
+                logger.info(
+                    f"[ORB] {exchange_name}/{sym}: candle H={last['high']:.4f} L={last['low']:.4f} "
+                    f"→ range [{orb_low:.4f}–{orb_high:.4f}]"
+                )
             except Exception as exc:
                 logger.warning(f"ORB data error for {sym}: {exc}")
 
@@ -400,6 +438,7 @@ class TradingBot:
     def _check_signals(self, exchange_name: str, symbols: List[str]):
         # Manual halt via Telegram /halt command
         if self._manual_halt:
+            logger.debug(f"[DECISION] {exchange_name}: manual halt active – skipping signal scan")
             return
 
         # Safety: halt if daily loss limit reached
@@ -415,13 +454,20 @@ class TradingBot:
         except Exception:
             pass
 
+        logger.info(f"[DECISION] {exchange_name}: scanning {len(symbols)} symbol(s): {symbols}")
         for sym in symbols:
             # Skip symbols where we already hold a position
             if sym in self._positions and self._positions[sym].status == PositionStatus.OPEN:
+                pos = self._positions[sym]
+                logger.info(
+                    f"[DECISION] {exchange_name}/{sym}: position open "
+                    f"({pos.side.value} @ {pos.entry_price:.4f}, "
+                    f"P&L={pos.unrealized_pnl:+.2f}) – skip"
+                )
                 continue
 
             try:
-                signal = self._get_signal(sym)
+                signal = self._get_signal(sym, exchange_name)
                 if signal == Signal.NONE:
                     continue
 
@@ -430,18 +476,45 @@ class TradingBot:
             except Exception as exc:
                 logger.error(f"Signal check error for {sym}: {exc}", exc_info=True)
 
-    def _get_signal(self, symbol: str) -> Signal:
+    def _get_signal(self, symbol: str, exchange_name: str = "") -> Signal:
+        prefix = f"[DECISION] {exchange_name}/{symbol}" if exchange_name else f"[DECISION] {symbol}"
+
         if isinstance(self._strategy, ORBStrategy):
             price = self._broker.get_quote(symbol)
             if price is None:
+                logger.info(f"{prefix}: no price available – skip")
                 return Signal.NONE
+
             bars = self._broker.get_bars(symbol, timeframe_minutes=1, limit=30)
             avg_vol = float(bars["volume"].mean()) if not bars.empty else 0.0
             last_vol = float(bars.iloc[-1]["volume"]) if not bars.empty else 0.0
+
+            orb_high = self._strategy.orb_high(symbol)
+            orb_low  = self._strategy.orb_low(symbol)
+            established = self._strategy.is_established(symbol)
+
+            if not established:
+                logger.info(f"{prefix}: ORB not yet established – skip")
+                return Signal.NONE
+
+            vol_ratio = last_vol / avg_vol if avg_vol > 0 else 0.0
+            vol_ok = avg_vol == 0 or last_vol >= avg_vol * self._strategy.volume_multiplier
+            logger.info(
+                f"{prefix}: price={price:.4f} | ORB [{orb_low:.4f}–{orb_high:.4f}] | "
+                f"vol={last_vol:.0f} ({vol_ratio:.1f}x avg, required {self._strategy.volume_multiplier}x) | "
+                f"vol_ok={vol_ok}"
+            )
             return self._strategy.check_signal(symbol, price, last_vol, avg_vol)
 
         if isinstance(self._strategy, MomentumStrategy):
             bars = self._broker.get_bars(symbol, timeframe_minutes=5, limit=40)
+            if bars.empty:
+                logger.info(f"{prefix}: no bars available – skip")
+                return Signal.NONE
+            last = bars.iloc[-1]
+            logger.info(
+                f"{prefix}: close={last['close']:.4f} | bars={len(bars)} | evaluating momentum…"
+            )
             return self._strategy.check_signal(symbol, bars)
 
         return Signal.NONE
