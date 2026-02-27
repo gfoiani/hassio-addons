@@ -1,13 +1,18 @@
 ARG BUILD_FROM=alpine:3.18
 FROM $BUILD_FROM
 
-# Install system dependencies
-# py3-pandas/numpy/lxml  – pre-compiled Alpine packages; avoids slow QEMU compilation of C extensions
-#                          on armv7/armhf (pandas from source via QEMU can take 20+ minutes)
-# openjdk11-jre-headless – Java runtime for Directa Darwin Engine (amd64/aarch64 only)
-# openjdk8-jre-headless  – Java runtime for armv7/armhf (openjdk11 not available on 32-bit Alpine)
-# curl                   – used by run.sh to download Engine.jar on first run
+# TARGETARCH is a Docker BuildKit automatic ARG (set at build time, not runtime).
+# Values: amd64, arm64, arm.  Use it to select the right Java package without
+# relying on uname -m under QEMU emulation.
+#
+# py3-pandas/numpy/lxml  – pre-compiled Alpine packages; avoids slow QEMU compilation of C
+#                          extensions on armv7/armhf (pandas from source can take 20+ min)
+# openjdk11-jre-headless – Java runtime for Directa Darwin Engine (amd64 / aarch64)
+# arm (armv7/armhf)      – Java not available on 32-bit Alpine; Directa broker not supported
+#                          on these platforms; XTB broker works fine without Java
+# curl                   – used by run.sh to download DCL.jar / Engine.jar at first run
 # nc                     – already provided by busybox in Alpine
+ARG TARGETARCH
 RUN \
   apk add --no-cache \
   bash \
@@ -23,10 +28,9 @@ RUN \
   libffi-dev \
   openssl-dev \
   curl && \
-  ARCH=$(uname -m) && \
-  case "$ARCH" in \
-    armv7l|armv6l) apk add --no-cache openjdk8-jre-headless ;; \
-    *)             apk add --no-cache openjdk11-jre-headless ;; \
+  case "${TARGETARCH}" in \
+    arm) echo "INFO: Java not available for 32-bit ARM; Directa broker not supported on this platform" ;; \
+    *)   apk add --no-cache openjdk11-jre-headless ;; \
   esac
 
 RUN mkdir -p /usr/src/app /data
