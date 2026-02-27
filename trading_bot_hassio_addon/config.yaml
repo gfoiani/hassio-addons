@@ -1,6 +1,6 @@
 name: "Day Trading Bot"
 description: "Automated day trading bot for NYSE and LSE. Supports XTB (xAPI) and Directa SIM brokers."
-version: "1.0.12"
+version: "1.0.14"
 slug: "day-trading-bot"
 image: "ghcr.io/gfoiani/day-trading-bot-{arch}"
 init: false
@@ -16,65 +16,142 @@ tmpfs: false
 stage: stable
 
 options:
-  # Broker selection:
-  #   "xtb"     - XTB xAPI (Europe/Italy, LSE+NYSE, CFD, regime dichiarativo)
-  #   "directa" - Directa SIM (Italy, LSE+NYSE+Borsa Italiana, regime amministrato)
+  # ── Broker ────────────────────────────────────────────────────────────────
+  # Which broker to use for order execution.
+  #
+  #   "xtb"     – XTB xAPI WebSocket. CFD on stocks (NYSE + LSE). Available in
+  #               Italy. Gains must be declared manually (regime dichiarativo).
+  #
+  #   "directa" – Directa SIM. Real shares (NYSE + LSE + Borsa Italiana).
+  #               Taxes withheld automatically by the broker (regime amministrato).
+  #               Darwin CommandLine is auto-downloaded and started at each addon
+  #               startup; no manual installation required.
   broker: "xtb"
 
-  # XTB    : api_key = userId (numeric account ID), api_secret = password
-  # Directa: api_key = Directa userId, api_secret = Directa password
-  #          (used to auto-start Darwin CommandLine inside the container)
+  # ── Credentials ───────────────────────────────────────────────────────────
+  # XTB:     api_key    = numeric userId shown in the XTB client portal
+  #          api_secret = your XTB account password
+  #
+  # Directa: api_key    = Directa userId (account code, e.g. D12345)
+  #          api_secret = Directa account password
+  #          These are passed to Darwin CommandLine on startup. Avoid passwords
+  #          with special shell characters (!, $, ") as they may cause issues.
   api_key: ""
   api_secret: ""
-  # true = demo/paper account, false = real money (USE WITH CAUTION)
-  # Directa: true starts Darwin CommandLine in -test mode (no real orders)
+
+  # Paper trading mode:
+  #   true  – demo/simulated account. No real orders are placed. Safe to test.
+  #           For Directa: Darwin CommandLine starts with -test flag.
+  #   false – LIVE account with REAL MONEY. Use with extreme caution.
   paper_trading: true
 
-  # Exchanges to monitor: comma-separated list of NYSE, LSE
+  # ── Markets ───────────────────────────────────────────────────────────────
+  # Comma-separated list of exchanges to monitor.
+  # Supported values:
+  #   NYSE – New York Stock Exchange (09:30–16:00 America/New_York)
+  #   LSE  – London Stock Exchange   (08:00–16:30 Europe/London)
+  # Example: "NYSE,LSE" or "NYSE" or "LSE"
   exchanges: "NYSE,LSE"
 
-  # Symbols to trade on NYSE
-  # XTB format    : AAPL.US, MSFT.US, TSLA.US
-  # Directa format: .AAPL, .MSFT, .TSLA  (dot prefix for US stocks)
+  # ── Symbols ───────────────────────────────────────────────────────────────
+  # Comma-separated list of symbols to trade on NYSE.
+  #
+  # XTB format     (suffix .US):  AAPL.US, MSFT.US, NVDA.US, TSLA.US, AMZN.US
+  # Directa format (dot prefix):  .AAPL, .MSFT, .NVDA, .TSLA, .AMZN
+  #
+  # Recommended liquid NYSE stocks for ORB:
+  #   XTB:     AAPL.US, MSFT.US, NVDA.US, TSLA.US, AMZN.US, META.US, AMD.US
+  #   Directa: .AAPL, .MSFT, .NVDA, .TSLA, .AMZN, .META, .AMD
   symbols_nyse: ""
-  # Symbols to trade on LSE
-  # XTB format    : BP.UK, VOD.UK, HSBA.UK
-  # Directa format: BP, VOD, HSBA  (plain ticker for LSE)
+
+  # Comma-separated list of symbols to trade on LSE.
+  #
+  # XTB format     (suffix .UK):  BP.UK, SHEL.UK, HSBA.UK, RIO.UK, AZN.UK
+  # Directa format (plain ticker): BP, SHEL, HSBA, RIO, AZN
+  #
+  # Recommended liquid LSE stocks for ORB:
+  #   XTB:     BP.UK, SHEL.UK, HSBA.UK, RIO.UK, AZN.UK, ULVR.UK, GSK.UK
+  #   Directa: BP, SHEL, HSBA, RIO, AZN, ULVR, GSK
   symbols_lse: ""
 
-  # ── Directa SIM settings ──────────────────────────────────────────────
-  # Only used when broker = "directa". Ignored for XTB.
-  # Darwin CommandLine (DCL.jar) is auto-started inside the container.
-  # Set directa_host to a remote IP only if Darwin runs on a separate machine.
-  directa_host: "127.0.0.1"
-
-  # Risk management
-  # Maximum capital to allocate per single position (in account currency)
+  # ── Risk management ───────────────────────────────────────────────────────
+  # Maximum capital to allocate per single position (in account currency, EUR).
+  # Example: "1000" = max €1 000 invested in any one trade.
+  # Keep this low when starting out (e.g. "200" or "500").
   max_position_value: "1000"
-  # Stop loss percentage (e.g. "2.0" = 2%)
+
+  # Stop loss percentage: position is closed at a loss if price moves against
+  # the entry by this percentage.
+  # Example: "2.0" = stop loss at -2% from entry price.
+  # For ORB strategy the actual stop is placed at the opposite ORB boundary.
   stop_loss_pct: "2.0"
-  # Take profit percentage (e.g. "4.0" = 4%)
+
+  # Take profit percentage: position is closed in profit if price moves in
+  # favour of entry by this percentage.
+  # Example: "4.0" = take profit at +4% from entry price.
+  # A 2:1 reward-to-risk ratio (e.g. SL 2% / TP 4%) is a common starting point.
   take_profit_pct: "4.0"
-  # Maximum daily portfolio loss before halting (e.g. "5.0" = 5%)
+
+  # Maximum daily portfolio loss before the bot stops opening new positions.
+  # Calculated as a percentage of total account equity at the start of the day.
+  # Example: "5.0" = halt all new entries if daily drawdown reaches -5%.
   max_daily_loss_pct: "5.0"
 
-  # Trading strategy: "orb" (Opening Range Breakout) or "momentum" (EMA crossover + RSI)
+  # ── Strategy ──────────────────────────────────────────────────────────────
+  # Trading strategy to apply:
+  #
+  #   "orb"      – Opening Range Breakout (recommended for day trading).
+  #                Records the high and low of the first orb_minutes after open.
+  #                Enters long on breakout above range high (or short below low)
+  #                when volume exceeds 1.5x the 30-bar average.
+  #
+  #   "momentum" – EMA-9 / EMA-21 crossover + RSI filter.
+  #                Enters long when EMA-9 crosses above EMA-21 with RSI 40-65.
+  #                Requires at least 25 bars of history.
   strategy: "orb"
-  # ORB: minutes after open to define the opening range
+
+  # Duration in minutes of the opening range collection window (ORB only).
+  # The high and low of the first orb_minutes after market open define the range.
+  # Common values: "15" (15-min ORB), "30" (30-min ORB).
   orb_minutes: "15"
 
-  # Minutes before market open to start monitoring
+  # ── Timing ────────────────────────────────────────────────────────────────
+  # Minutes before market open to start monitoring prices (pre-market watch).
+  # Example: "30" = monitoring starts 30 min before open.
   pre_market_minutes: "30"
-  # Minutes before market close to close all positions
+
+  # Minutes before market close to automatically close all open positions.
+  # Prevents holding positions overnight.
+  # Example: "15" = all positions closed 15 min before close.
   close_minutes: "15"
-  # How often (seconds) the bot checks market state
+
+  # How often (in seconds) the main loop runs: checks signals, updates
+  # positions, processes Telegram commands.
+  # Example: "30" = loop runs every 30 seconds. Lower = faster but more API calls.
   check_interval: "30"
 
-  # ── Telegram integration (optional) ───────────────────────────────────
-  # Deploy the companion relay service on Render, then fill in these values.
-  # Leave telegram_relay_url empty to disable Telegram notifications.
-  telegram_relay_url: ""   # e.g. https://trading-bot-telegram-relay.onrender.com
-  telegram_api_key: ""     # must match RELAY_API_KEY on the Render service
+  # ── Directa SIM settings ──────────────────────────────────────────────────
+  # Only used when broker = "directa". Ignored for XTB.
+  #
+  # Host where Darwin CommandLine is running.
+  #   "127.0.0.1" (default) – Darwin is auto-downloaded and started inside
+  #                            the container using api_key and api_secret above.
+  #   Remote IP             – Skip auto-start; connect to an existing Darwin
+  #                            instance on another machine (e.g. "192.168.1.50").
+  directa_host: "127.0.0.1"
+
+  # ── Telegram integration (optional) ───────────────────────────────────────
+  # Deploy the companion relay service on Render (see telegram_bot/ folder),
+  # then fill in the two values below.
+  # Leave telegram_relay_url empty to disable all Telegram notifications.
+  #
+  # Public URL of the Render relay service.
+  # Example: "https://trading-bot-telegram-relay.onrender.com"
+  telegram_relay_url: ""
+
+  # Shared secret between this addon and the Render relay.
+  # Must match the RELAY_API_KEY environment variable set on Render.
+  telegram_api_key: ""
 
 schema:
   broker: str

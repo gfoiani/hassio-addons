@@ -70,6 +70,16 @@ class BinanceBroker(BrokerBase):
             mode = "TESTNET" if self._testnet else "LIVE ⚠️"
             logger.info(f"Connected to Binance ({mode}) — server time: {server_time['serverTime']}")
             return True
+        except BinanceAPIException as exc:
+            if exc.code == -2015:
+                logger.error(
+                    f"Binance connection refused (code -2015): API key invalid, "
+                    f"IP not whitelisted, or insufficient permissions. "
+                    f"Go to Binance → API Management and check the IP whitelist."
+                )
+            else:
+                logger.error(f"Failed to connect to Binance: {exc}")
+            return False
         except Exception as exc:
             logger.error(f"Failed to connect to Binance: {exc}")
             return False
@@ -280,17 +290,42 @@ class BinanceBroker(BrokerBase):
     # Position management
     # ------------------------------------------------------------------
 
-    def has_pending_oco(self, symbol: str, oco_order_list_id: str) -> bool:
+    def get_oco_result(self, symbol: str, oco_order_list_id: str) -> Optional[dict]:
         """
-        Returns True if the OCO is still EXECUTING (position still open).
-        Returns False if OCO was ALL_DONE or not found (triggered).
+        Returns None if the OCO is still EXECUTING (position still open) or on error.
+        Returns {"fill_price": float, "reason": "stop_loss"|"take_profit"} when OCO has fired.
+
+        Uses the actual Binance order data (type + cummulativeQuoteQty) to determine which
+        leg filled and at what price — avoids the unreliable current-price heuristic.
         """
         try:
             oco = self._client.get_orderlist(orderListId=int(oco_order_list_id))
-            return oco.get("listStatusType") == "EXECUTING"
+            if oco.get("listStatusType") == "EXECUTING":
+                return None  # still active
+
+            # OCO fired — find the FILLED leg to determine actual fill price and reason
+            for order_ref in oco.get("orders", []):
+                order = self._client.get_order(symbol=symbol, orderId=order_ref["orderId"])
+                if order.get("status") == "FILLED":
+                    order_type = order.get("type", "")
+                    reason = "stop_loss" if order_type == "STOP_LOSS_LIMIT" else "take_profit"
+                    executed_qty = float(order.get("executedQty", 0))
+                    cumulative_quote = float(order.get("cummulativeQuoteQty", 0))
+                    fill_price = (cumulative_quote / executed_qty) if executed_qty > 0 else 0.0
+                    logger.info(
+                        f"{symbol}: OCO {oco_order_list_id} filled — "
+                        f"type={order_type} reason={reason} fill_price={fill_price:.6f}"
+                    )
+                    return {"fill_price": fill_price, "reason": reason}
+
+            # ALL_DONE but no FILLED leg found (e.g. all legs expired/cancelled)
+            logger.warning(
+                f"{symbol}: OCO {oco_order_list_id} ALL_DONE but no FILLED leg found"
+            )
+            return {"fill_price": 0.0, "reason": "take_profit"}
         except Exception as exc:
-            logger.debug(f"has_pending_oco error for {symbol} OCO {oco_order_list_id}: {exc}")
-            return False
+            logger.debug(f"get_oco_result error for {symbol} OCO {oco_order_list_id}: {exc}")
+            return None  # treat as still active on error
 
     def close_position(
         self, symbol: str, qty: float, oco_order_list_id: Optional[str]

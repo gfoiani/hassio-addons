@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.14
+
+- Fix: DCL.jar is a launcher that spawns `directa.standalone.StartEngine` (with the `-mc` socket-server flag) as a detached background process and then exits. The previous script treated DCL.jar's intentional exit as a crash and aborted. DCL.jar is now run synchronously; after it exits, `pgrep` locates the Engine.jar process it spawned and monitors that instead.
+
+## v1.0.13
+
+- Fix: switched Directa startup from `Engine.jar` (standalone engine, no local socket API) back to `DCL.jar` (Darwin CommandLine), which is the component that opens the local socket API ports 10001/10002/10003 that the Python broker connects to. Using `Engine.jar` alone caused the bot to restart immediately because port 10002 never opened within the 60-second timeout.
+- Directa: readiness timeout extended from 60 s to 90 s to give DCL.jar more time on slower hardware
+
 ## v1.0.12
 
 - Telegram: bot now sends a startup notification with broker, mode, strategy and symbols

@@ -43,10 +43,10 @@ configuration:
     description: "Minutes after market open used to define the opening range (ORB strategy only). Recommended: 15."
   pre_market_minutes:
     name: Pre-Market Minutes
-    description: Minutes before market open to start monitoring. Recommended: 30.
+    description: "Minutes before market open to start monitoring. Recommended: 30."
   close_minutes:
     name: Close Minutes
-    description: Minutes before market close to automatically close all open positions. Recommended: 15.
+    description: "Minutes before market close to automatically close all open positions. Recommended: 15."
   check_interval:
     name: Check Interval (seconds)
     description: "How often the bot checks market state and signals. Recommended: 30."
