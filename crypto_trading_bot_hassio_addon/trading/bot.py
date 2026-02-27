@@ -23,6 +23,7 @@ from trading.config import CryptoTradingConfig
 from trading.position import Position, PositionSide, PositionStatus
 from trading.risk import RiskManager
 from trading.strategy import MomentumStrategy, Signal
+from binance.exceptions import BinanceAPIException
 from trading.broker import create_broker
 from trading.broker.binance_broker import BinanceBroker
 from trading.telegram_notifier import TelegramNotifier
@@ -32,6 +33,18 @@ logger = logging.getLogger("crypto_bot.bot")
 STORAGE_DIR = Path("/data")
 POSITIONS_FILE = STORAGE_DIR / "crypto_positions.json"
 TRADES_LOG_FILE = STORAGE_DIR / "crypto_trades.log"
+
+_IP_WARNING_COOLDOWN = 3600  # seconds between repeated IP whitelist alerts
+
+
+def _fetch_public_ip() -> str:
+    """Return the current public IPv4 address, or 'unknown' on failure."""
+    try:
+        import urllib.request
+        with urllib.request.urlopen("https://api.ipify.org", timeout=5) as resp:
+            return resp.read().decode().strip()
+    except Exception:
+        return "unknown"
 
 
 class CryptoBot:
@@ -57,6 +70,9 @@ class CryptoBot:
         # Manual halt flag (set by /halt command)
         self._manual_halt: bool = False
 
+        # Throttle IP warning notifications (avoid Telegram spam)
+        self._last_ip_warning_ts: float = 0.0
+
         # Track UTC day for daily reset
         self._current_day: Optional[int] = None
 
@@ -69,6 +85,15 @@ class CryptoBot:
     def run(self):
         logger.info("Connecting to Binance …")
         if not self._broker.connect():
+            current_ip = _fetch_public_ip()
+            self._telegram.notify(
+                f"❌ <b>Crypto Bot failed to start</b>\n"
+                f"Could not connect to Binance. Possible causes:\n"
+                f"• Wrong API key or secret\n"
+                f"• IP not whitelisted on Binance\n"
+                f"Current IP: <code>{current_ip}</code>\n"
+                f"Binance → Settings → API Management → edit key → update IP whitelist."
+            )
             raise RuntimeError("Failed to connect to Binance. Check API credentials.")
 
         # Pre-load symbol filters
@@ -135,6 +160,10 @@ class CryptoBot:
         for symbol in self._config.symbols:
             try:
                 self._process_symbol(symbol, now_utc)
+            except BinanceAPIException as exc:
+                logger.error(f"Binance API error processing {symbol}: {exc}", exc_info=True)
+                if exc.code == -2015:
+                    self._notify_ip_issue()
             except Exception as exc:
                 logger.error(f"Error processing {symbol}: {exc}", exc_info=True)
 
@@ -165,17 +194,11 @@ class CryptoBot:
 
             # Check if OCO was triggered server-side (SL or TP hit)
             if pos.oco_order_list_id:
-                oco_active = self._broker.has_pending_oco(symbol, pos.oco_order_list_id)
-                if not oco_active:
-                    # OCO fired — determine if it was SL or TP
-                    price = current_price or pos.current_price
-                    if price <= pos.stop_loss:
-                        reason = "stop_loss"
-                    elif price >= pos.take_profit:
-                        reason = "take_profit"
-                    else:
-                        reason = "take_profit"  # default: assume TP if unclear
-                    self._record_closed_position(pos, price, reason)
+                oco_result = self._broker.get_oco_result(symbol, pos.oco_order_list_id)
+                if oco_result is not None:
+                    # OCO fired — use actual fill price and reason from the Binance order
+                    fill_price = oco_result["fill_price"] or current_price or pos.current_price
+                    self._record_closed_position(pos, fill_price, oco_result["reason"])
                     return
 
             # Fallback local SL/TP check (e.g. if OCO status unavailable)
@@ -352,11 +375,34 @@ class CryptoBot:
             "manual": "Manual close",
         }
         label = reason_labels.get(reason, reason)
+        pnl_pct = (pnl / pos.cost_usdt * 100) if pos.cost_usdt else 0.0
         self._telegram.notify(
             f"{emoji} <b>Position closed</b> – <code>{pos.symbol}</code>\n"
             f"Reason: {label}\n"
             f"Exit: <b>{price:.6f}</b> | P&amp;L: <b>{pnl:+.4f} USDT</b> "
-            f"({pos.unrealized_pnl_pct:+.2f}%)"
+            f"({pnl_pct:+.2f}%)"
+        )
+
+    # ------------------------------------------------------------------
+    # IP whitelist alert
+    # ------------------------------------------------------------------
+
+    def _notify_ip_issue(self):
+        """Send a throttled Telegram alert when Binance rejects the current IP."""
+        now = time.monotonic()
+        if now - self._last_ip_warning_ts < _IP_WARNING_COOLDOWN:
+            return
+        self._last_ip_warning_ts = now
+        current_ip = _fetch_public_ip()
+        logger.warning(
+            f"[IP] Binance rejected request (code -2015) — IP not whitelisted? "
+            f"Current IP: {current_ip}"
+        )
+        self._telegram.notify(
+            f"⚠️ <b>Binance IP restriction error</b>\n"
+            f"The bot's IP may have changed and is no longer whitelisted.\n"
+            f"Current IP: <code>{current_ip}</code>\n"
+            f"Go to Binance → Settings → API Management → edit the key → update IP whitelist."
         )
 
     # ------------------------------------------------------------------

@@ -43,7 +43,12 @@ echo "Max daily loss:   ${MAX_DAILY_LOSS_PCT}%"
 echo ""
 
 # --------------------------------------------------------------------------
-# Directa: start Darwin Engine directly (bypassing DCL.jar launcher)
+# Directa: launch Darwin via DCL.jar
+#
+# DCL.jar is a launcher: it downloads Engine.jar, spawns it with the -mc
+# (machine communication) flag that opens socket ports 10001/10002/10003,
+# then exits.  We run DCL.jar synchronously (~5 s), then locate the
+# Engine.jar (StartEngine) process it left running in the background.
 #
 # Darwin is auto-started inside the container when directa_host=127.0.0.1
 # (the default). If directa_host points to an external machine, Darwin is
@@ -53,22 +58,16 @@ ENGINE_PID=""
 
 if [[ "$BROKER" == "directa" && "${DIRECTA_HOST:-127.0.0.1}" == "127.0.0.1" ]]; then
   ENGINE_DIR="/root/.directa/engine"
-  ENGINE_JAR="$ENGINE_DIR/Engine.jar"
-  GSON_JAR="$ENGINE_DIR/gson.jar"
+  DCL_JAR="$ENGINE_DIR/DCL.jar"
   ENGINE_LOG="/data/darwin.log"
   DIRECTA_BASE="https://app1.directatrading.com/dcl/RilascioDCL"
 
   mkdir -p "$ENGINE_DIR"
 
-  # Always download Engine.jar and gson.jar to ensure the latest version
-  echo "Downloading Directa Engine.jar..."
-  if ! curl -fsSL -o "$ENGINE_JAR" "$DIRECTA_BASE/Engine.jar"; then
-    echo "ERROR: Failed to download Engine.jar"
-    exit 1
-  fi
-  echo "Downloading gson.jar..."
-  if ! curl -fsSL -o "$GSON_JAR" "$DIRECTA_BASE/gson.jar"; then
-    echo "ERROR: Failed to download gson.jar"
+  # Always download DCL.jar to ensure the latest version.
+  echo "Downloading Directa DCL.jar..."
+  if ! curl -fsSL -o "$DCL_JAR" "$DIRECTA_BASE/DCL.jar"; then
+    echo "ERROR: Failed to download DCL.jar"
     exit 1
   fi
 
@@ -79,23 +78,32 @@ if [[ "$BROKER" == "directa" && "${DIRECTA_HOST:-127.0.0.1}" == "127.0.0.1" ]]; 
   tail -f "$ENGINE_LOG" &
   TAIL_PID=$!
 
-  # Build flags and start Engine.jar directly (stdout/stderr captured in log)
+  # Run DCL.jar synchronously — it downloads Engine.jar, spawns StartEngine
+  # with the -mc socket-server flag, prints "Fine del comando avvio" and exits.
   if [[ "${PAPER_TRADING:-true}" == "true" ]]; then
     echo "Directa Darwin:   starting in TEST environment (no real orders)"
-    java -classpath "$ENGINE_JAR:$GSON_JAR" directa.standalone.StartEngine \
-      "$API_KEY" "$API_SECRET" -log -mc -test < /dev/null >> "$ENGINE_LOG" 2>&1 &
+    java -Djava.awt.headless=true -jar "$DCL_JAR" \
+      "$API_KEY" "$API_SECRET" -test < /dev/null >> "$ENGINE_LOG" 2>&1
   else
     echo "Directa Darwin:   starting in LIVE environment ⚠️  REAL MONEY"
-    java -classpath "$ENGINE_JAR:$GSON_JAR" directa.standalone.StartEngine \
-      "$API_KEY" "$API_SECRET" -log -mc < /dev/null >> "$ENGINE_LOG" 2>&1 &
+    java -Djava.awt.headless=true -jar "$DCL_JAR" \
+      "$API_KEY" "$API_SECRET" < /dev/null >> "$ENGINE_LOG" 2>&1
   fi
-  ENGINE_PID=$!
-  echo "Darwin Engine PID: $ENGINE_PID  (logs → $ENGINE_LOG)"
+
+  # DCL.jar has exited — locate the Engine.jar (StartEngine) process it spawned.
+  ENGINE_PID=$(pgrep -f "directa.standalone.StartEngine" 2>/dev/null | head -1)
+  if [[ -z "$ENGINE_PID" ]]; then
+    kill "$TAIL_PID" 2>/dev/null
+    echo "ERROR: DCL.jar finished but StartEngine is not running. Full $ENGINE_LOG:"
+    cat "$ENGINE_LOG"
+    exit 1
+  fi
+  echo "Darwin (Engine) PID: $ENGINE_PID  (logs → $ENGINE_LOG)"
 
   # Wait until Darwin's trading socket (port 10002) accepts connections
-  echo "Waiting for Darwin to be ready (up to 60s)..."
+  echo "Waiting for Darwin to be ready (up to 90s)..."
   DARWIN_READY=false
-  for i in $(seq 1 60); do
+  for i in $(seq 1 90); do
     if nc -z 127.0.0.1 10002 2>/dev/null; then
       DARWIN_READY=true
       kill "$TAIL_PID" 2>/dev/null
@@ -106,7 +114,7 @@ if [[ "$BROKER" == "directa" && "${DIRECTA_HOST:-127.0.0.1}" == "127.0.0.1" ]]; 
     if ! kill -0 "$ENGINE_PID" 2>/dev/null; then
       sleep 1  # let tail flush remaining output
       kill "$TAIL_PID" 2>/dev/null
-      echo "ERROR: Darwin Engine exited unexpectedly. Full $ENGINE_LOG:"
+      echo "ERROR: Darwin Engine (StartEngine) exited unexpectedly. Full $ENGINE_LOG:"
       cat "$ENGINE_LOG"
       exit 1
     fi
@@ -115,7 +123,7 @@ if [[ "$BROKER" == "directa" && "${DIRECTA_HOST:-127.0.0.1}" == "127.0.0.1" ]]; 
 
   if [[ "$DARWIN_READY" == "false" ]]; then
     kill "$TAIL_PID" 2>/dev/null
-    echo "ERROR: Darwin did not become ready within 60 seconds. Full $ENGINE_LOG:"
+    echo "ERROR: Darwin Engine did not become ready within 90 seconds. Full $ENGINE_LOG:"
     cat "$ENGINE_LOG"
     kill "$ENGINE_PID" 2>/dev/null
     exit 1
