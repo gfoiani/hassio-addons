@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.15
+
+- Fix: armv7/armhf Docker build now uses `ARG TARGETARCH` (a Docker BuildKit compile-time variable) instead of `uname -m` at runtime to select the Java package. `openjdk8-jre-headless` is not available in Alpine 3.18 for 32-bit ARM; Java is skipped on those platforms with an informational message. Directa broker requires Java and is therefore not supported on armv7/armhf; XTB broker is unaffected.
+
 ## v1.0.14
 
 - Fix: DCL.jar is a launcher that spawns `directa.standalone.StartEngine` (with the `-mc` socket-server flag) as a detached background process and then exits. The previous script treated DCL.jar's intentional exit as a crash and aborted. DCL.jar is now run synchronously; after it exits, `pgrep` locates the Engine.jar process it spawned and monitors that instead.
