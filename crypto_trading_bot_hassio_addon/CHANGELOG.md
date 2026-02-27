@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.14
+
+- Fix: `BrokerBase` abstract method renamed from `has_pending_oco` to `get_oco_result` to match the implementation in `BinanceBroker`, resolving a `TypeError` at startup.
+
 ## 1.0.13
 
 - Fix: OCO close reason detection replaced unreliable current-price heuristic with actual Binance order data. The bot now queries `get_order` on each OCO leg to find the FILLED one and reads its `type` (`STOP_LOSS_LIMIT` → stop-loss, `LIMIT_MAKER` → take-profit) and actual `cummulativeQuoteQty / executedQty` fill price. Previously the bot could report "Take-profit hit" even when the stop-loss fired, because the market price had bounced back before the next tick.
