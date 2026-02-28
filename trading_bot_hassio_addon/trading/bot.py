@@ -204,7 +204,7 @@ class TradingBot:
         # ── Not a market day ──────────────────────────────────────────
         if not ex.is_market_day():
             if state.phase != ExchangeState.CLOSED:
-                logger.debug(f"{name}: market closed (weekend/holiday)")
+                logger.info(f"{name}: market closed (weekend/holiday). Next session: Monday.")
                 state.phase = ExchangeState.CLOSED
             return
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.0.26
+
+- Fix: "market closed (weekend/holiday)" was logged at DEBUG level (invisible in normal output). Changed to INFO so the bot immediately shows a visible status message on startup when the market is closed.
+
 ## v1.0.25
 
 - Fix: `#!/usr/bin/with-contenv bashio` enables bash `errexit` (`set -e`) by default. When Darwin exits with a non-zero code (market closed), `wait $ENGINE_PID` returned non-zero and `set -e` killed the script immediately — before the retry/sleep logic ever ran. This is why the container kept stopping despite the retry loop added in v1.0.23/v1.0.24. Added `set +e` at the top of `run.sh` (alongside the existing `set +u` and `set +H`) to disable errexit. All critical commands already have explicit error checking via `if !` guards, so disabling errexit has no negative side effects.
