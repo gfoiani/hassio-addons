@@ -1,6 +1,6 @@
 name: "Bet Sniper Bot (Betfair)"
 description: "Automatic football 1X2 betting on Betfair with configurable risk management and Telegram notifications"
-version: "1.1.0"
+version: "1.2.0"
 slug: "bet-sniper-bot"
 image: "ghcr.io/gfoiani/bet-sniper-bot-{arch}"
 init: false

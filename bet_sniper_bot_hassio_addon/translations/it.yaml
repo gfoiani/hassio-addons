@@ -1,0 +1,49 @@
+configuration:
+  username:
+    name: Nome Utente Betfair
+    description: Il nome utente del tuo account Betfair.
+  password:
+    name: Password Betfair
+    description: La password del tuo account Betfair. Non condividere mai questo valore.
+  app_key:
+    name: Chiave App Betfair
+    description: Chiave applicazione dal tuo account Betfair (Impostazioni → Applicazioni API).
+  paper_trading:
+    name: Paper Trading (Simulazione)
+    description: "true = Modalità simulazione, nessun denaro reale a rischio. false = Scommesse LIVE con denaro reale."
+  leagues:
+    name: Campionati
+    description: "Elenco dei campionati da monitorare, separati da virgola. Esempi: soccer_italy_serie_a,soccer_epl,soccer_spain_la_liga,soccer_germany_bundesliga"
+  min_odds:
+    name: Quote Minime
+    description: "Soglia minima di quota per piazzare scommesse. Esempio: 1.5 = scommetti solo a 1.50 o superiore."
+  max_odds:
+    name: Quote Massime
+    description: "Soglia massima di quota per piazzare scommesse. Esempio: 2.2 = scommetti solo a 2.20 o inferiore."
+  stake_per_bet:
+    name: Puntata per Scommessa (Unità di Valuta)
+    description: "Importo fisso da scommettere su ogni scommessa. Esempio: 5.0 = €5 o unità di valuta locale per scommessa."
+  max_daily_loss_pct:
+    name: Perdita Giornaliera Massima (%)
+    description: "Il bot smette di scommettere se la perdita totale del giorno supera questa percentuale del conto. Esempio: 5.0 = −5%."
+  reserve_pct:
+    name: Riserva (%)
+    description: "Percentuale del conto da mantenere come riserva di sicurezza e non usare per le scommesse. Esempio: 30.0 = mantieni il 30% riservato."
+  lookahead_hours:
+    name: Periodo di Anteprima (ore)
+    description: "Quanto in anticipo scansionare le partite in arrivo. Esempio: 24 = scansiona le prossime 24 ore."
+  check_interval:
+    name: Intervallo di Controllo (secondi)
+    description: "Con quale frequenza il bot controlla nuove opportunità. Impostazione predefinita: 1800 (30 minuti)."
+  bet_window_hours:
+    name: Finestra di Scommessa (ore)
+    description: "Quante ore prima del calcio d'inizio per piazzare le scommesse. Esempio: 2.0 = piazza scommesse fino a 2 ore prima."
+  min_time_to_ko_minutes:
+    name: Tempo Minimo al Calcio d'Inizio (minuti)
+    description: "Tempo residuo minimo prima del calcio d'inizio per piazzare una scommessa. Esempio: 45 = non scommettere se rimangono meno di 45 minuti."
+  telegram_relay_url:
+    name: URL Relay Telegram
+    description: URL del servizio relay su Render per le notifiche Telegram. Lascia vuoto per disabilitare.
+  telegram_api_key:
+    name: Chiave API Relay Telegram
+    description: Chiave segreta condivisa tra il bot e il relay (header X-API-Key).

@@ -1,0 +1,49 @@
+configuration:
+  username:
+    name: Betfair Username
+    description: Your Betfair account username.
+  password:
+    name: Betfair Password
+    description: Your Betfair account password. Keep this private.
+  app_key:
+    name: Betfair App Key
+    description: Application key from your Betfair account (Settings → API Applications).
+  paper_trading:
+    name: Paper Trading (Simulation)
+    description: "true = Simulation mode, no real money risked. false = LIVE betting with real funds."
+  leagues:
+    name: Leagues
+    description: "Comma-separated list of leagues to monitor. Examples: soccer_italy_serie_a,soccer_epl,soccer_spain_la_liga,soccer_germany_bundesliga"
+  min_odds:
+    name: Minimum Odds
+    description: "Minimum odds threshold for placing bets. Example: 1.5 = only bet at 1.50 or higher."
+  max_odds:
+    name: Maximum Odds
+    description: "Maximum odds threshold for placing bets. Example: 2.2 = only bet at 2.20 or lower."
+  stake_per_bet:
+    name: Stake per Bet (Currency Units)
+    description: "Fixed amount to stake on each bet. Example: 5.0 = €5 or local currency unit per bet."
+  max_daily_loss_pct:
+    name: Max Daily Loss (%)
+    description: "Bot stops betting for the day if total loss exceeds this percentage of account. Example: 5.0 = −5%."
+  reserve_pct:
+    name: Reserve (%)
+    description: "Percentage of account to keep as safety reserve and not use for betting. Example: 30.0 = keep 30% reserved."
+  lookahead_hours:
+    name: Lookahead Period (hours)
+    description: "How far in advance to scan for upcoming matches. Example: 24 = scan next 24 hours."
+  check_interval:
+    name: Check Interval (seconds)
+    description: "How often the bot checks for new opportunities. Default: 1800 (30 minutes)."
+  bet_window_hours:
+    name: Betting Window (hours)
+    description: "How many hours before kickoff to place bets. Example: 2.0 = place bets up to 2 hours before."
+  min_time_to_ko_minutes:
+    name: Min Time to Kickoff (minutes)
+    description: "Minimum time remaining before kickoff to place a bet. Example: 45 = don't bet if less than 45 minutes to KO."
+  telegram_relay_url:
+    name: Telegram Relay URL
+    description: URL of the Render relay service for Telegram notifications. Leave empty to disable.
+  telegram_api_key:
+    name: Telegram Relay API Key
+    description: Shared secret key between the bot and the relay service (X-API-Key header).
