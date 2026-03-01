@@ -203,3 +203,80 @@ class TradeDatabase:
             )
         except Exception as exc:
             logger.error("Failed to record trade close for id=%d: %s", trade_id, exc)
+
+    def get_stats(self) -> dict:
+        """Return aggregated statistics from the crypto trade history.
+
+        All P&L amounts are in USDT.
+        Returns an empty dict on DB error (non-critical).
+        """
+        try:
+            with self._lock, self._connect() as conn:
+                row = conn.execute("""
+                    SELECT
+                        COUNT(*)                                  AS total,
+                        COALESCE(SUM(win), 0)                    AS wins,
+                        COALESCE(ROUND(AVG(win) * 100, 1), 0)   AS win_rate,
+                        COALESCE(ROUND(SUM(realized_pnl), 4), 0) AS total_pnl,
+                        COALESCE(ROUND(AVG(realized_pnl), 4), 0) AS avg_pnl,
+                        COALESCE(ROUND(AVG(realized_pnl_pct), 2), 0) AS avg_pnl_pct,
+                        COALESCE(ROUND(MAX(realized_pnl), 4), 0) AS best_pnl,
+                        COALESCE(ROUND(MIN(realized_pnl), 4), 0) AS worst_pnl,
+                        COALESCE(ROUND(AVG(duration_seconds) / 60.0, 1), 0) AS avg_duration_min
+                    FROM trades WHERE close_time IS NOT NULL
+                """).fetchone()
+
+                open_count = conn.execute(
+                    "SELECT COUNT(*) FROM trades WHERE close_time IS NULL"
+                ).fetchone()[0]
+
+                today_row = conn.execute("""
+                    SELECT
+                        COUNT(*) AS trades,
+                        COALESCE(ROUND(SUM(realized_pnl), 4), 0) AS pnl
+                    FROM trades
+                    WHERE close_time IS NOT NULL
+                      AND date(close_time) = date('now', '-1 day')
+                """).fetchone()
+
+                week_row = conn.execute("""
+                    SELECT
+                        COUNT(*) AS trades,
+                        COALESCE(ROUND(SUM(realized_pnl), 4), 0) AS pnl
+                    FROM trades
+                    WHERE close_time IS NOT NULL
+                      AND close_time >= datetime('now', '-7 days')
+                """).fetchone()
+
+                reason_rows = conn.execute("""
+                    SELECT close_reason,
+                           COUNT(*) AS cnt,
+                           COALESCE(ROUND(SUM(realized_pnl), 4), 0) AS pnl
+                    FROM trades
+                    WHERE close_time IS NOT NULL
+                    GROUP BY close_reason
+                """).fetchall()
+
+            return {
+                "total_closed": row["total"],
+                "wins": row["wins"],
+                "win_rate": row["win_rate"],
+                "total_pnl": row["total_pnl"],
+                "avg_pnl": row["avg_pnl"],
+                "avg_pnl_pct": row["avg_pnl_pct"],
+                "best_pnl": row["best_pnl"],
+                "worst_pnl": row["worst_pnl"],
+                "avg_duration_min": row["avg_duration_min"],
+                "open_count": open_count,
+                "today_trades": today_row["trades"],
+                "today_pnl": today_row["pnl"],
+                "week_trades": week_row["trades"],
+                "week_pnl": week_row["pnl"],
+                "by_reason": {
+                    r["close_reason"]: {"count": r["cnt"], "pnl": r["pnl"]}
+                    for r in reason_rows
+                },
+            }
+        except Exception as exc:
+            logger.error("Failed to query trade stats: %s", exc)
+            return {}

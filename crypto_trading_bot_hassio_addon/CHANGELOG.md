@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.16
+
+- Feature: `/stats` Telegram command. Returns all-time crypto trading statistics
+  from the SQLite database: total closed trades, win/loss count, win rate, total
+  and average P&L (USDT), best/worst trade, average hold duration, breakdown by
+  exit reason (stop-loss / take-profit / manual), and summaries for today and
+  the last 7 days.  The command is available alongside the existing `/status`,
+  `/halt`, `/resume`, and `/close` commands.
+
 ## 1.0.15
 
 - Feature: SQLite trade history database (`/data/crypto_trades.db`).

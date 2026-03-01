@@ -374,10 +374,13 @@ class TradingBot:
                     logger.info("Trading manually resumed via Telegram.")
                 elif command == "close":
                     self._cmd_close(chat_id, args.strip().upper())
+                elif command == "stats":
+                    self._cmd_stats(chat_id)
                 else:
                     self._telegram.send_result(
                         chat_id,
-                        f"❓ Unknown command: <code>{command}</code>",
+                        f"❓ Unknown command: <code>{command}</code>\n\n"
+                        f"Available: /status /halt /resume /close SYMBOL /stats",
                     )
             except Exception as exc:
                 logger.error(f"Error processing Telegram command /{command}: {exc}")
@@ -435,6 +438,56 @@ class TradingBot:
             chat_id,
             f"✅ Closing <code>{symbol}</code> at market price…",
         )
+
+    def _cmd_stats(self, chat_id: int):
+        s = self._trade_db.get_stats()
+        if not s:
+            self._telegram.send_result(chat_id, "❌ Could not retrieve statistics.")
+            return
+
+        total = s["total_closed"]
+        if total == 0:
+            self._telegram.send_result(
+                chat_id,
+                "📈 <b>Trading Statistics</b>\n\nNo closed trades yet.",
+            )
+            return
+
+        wins = s["wins"]
+        losses = total - wins
+        reason_labels = {
+            "stop_loss": "Stop-loss",
+            "take_profit": "Take-profit",
+            "market_close": "Market close",
+            "manual": "Manual",
+        }
+        reason_lines = [
+            f"   • {reason_labels.get(r, r)}: {d['count']} trades ({d['pnl']:+.2f})"
+            for r, d in s["by_reason"].items()
+        ]
+
+        lines = [
+            "📈 <b>Trading Statistics</b>\n",
+            f"<b>All-time</b> ({total} closed trades)",
+            f"  Win/Loss: {wins}W – {losses}L | Win rate: <b>{s['win_rate']:.1f}%</b>",
+            f"  Total P&amp;L: <b>{s['total_pnl']:+.2f}</b>",
+            f"  Avg P&amp;L: {s['avg_pnl']:+.2f} ({s['avg_pnl_pct']:+.2f}%)",
+            f"  Best: {s['best_pnl']:+.2f} | Worst: {s['worst_pnl']:+.2f}",
+            f"  Avg duration: {s['avg_duration_min']:.0f} min",
+        ]
+        if reason_lines:
+            lines.append("\n<b>By exit reason:</b>")
+            lines.extend(reason_lines)
+        lines.append(
+            f"\n<b>Yesterday:</b> {s['today_trades']} trades | P&amp;L {s['today_pnl']:+.2f}"
+        )
+        lines.append(
+            f"<b>Last 7 days:</b> {s['week_trades']} trades | P&amp;L {s['week_pnl']:+.2f}"
+        )
+        if s["open_count"]:
+            lines.append(f"\n📂 Open positions in DB: {s['open_count']}")
+
+        self._telegram.send_result(chat_id, "\n".join(lines))
 
     # ------------------------------------------------------------------
     # Signal detection & entry
