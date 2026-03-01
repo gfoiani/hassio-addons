@@ -43,6 +43,7 @@ from trading.strategy import ORBStrategy, MomentumStrategy, Signal, create_strat
 from trading.broker import create_broker
 from trading.broker.base import BrokerBase
 from trading.telegram_notifier import TelegramNotifier
+from trading.trade_db import TradeDatabase
 
 logger = logging.getLogger("trading_bot.bot")
 
@@ -53,6 +54,7 @@ STORAGE_DIR = Path("/data")
 _HEARTBEAT_INTERVAL = 1800  # seconds between "still alive" log lines (30 min)
 POSITIONS_FILE = STORAGE_DIR / "positions.json"
 TRADES_LOG_FILE = STORAGE_DIR / "trades.log"
+TRADES_DB_FILE = STORAGE_DIR / "trades.db"
 
 
 class ExchangeState:
@@ -110,6 +112,9 @@ class TradingBot:
 
         # Ensure storage directory exists
         STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+        # SQLite trade history (non-critical: DB errors never abort trading)
+        self._trade_db = TradeDatabase(TRADES_DB_FILE)
 
     # ------------------------------------------------------------------
     # Public API
@@ -204,7 +209,7 @@ class TradingBot:
         # ── Not a market day ──────────────────────────────────────────
         if not ex.is_market_day():
             if state.phase != ExchangeState.CLOSED:
-                logger.debug(f"{name}: market closed (weekend/holiday)")
+                logger.info(f"{name}: market closed (weekend/holiday). Next session: Monday.")
                 state.phase = ExchangeState.CLOSED
             return
 
@@ -369,10 +374,13 @@ class TradingBot:
                     logger.info("Trading manually resumed via Telegram.")
                 elif command == "close":
                     self._cmd_close(chat_id, args.strip().upper())
+                elif command == "stats":
+                    self._cmd_stats(chat_id)
                 else:
                     self._telegram.send_result(
                         chat_id,
-                        f"❓ Unknown command: <code>{command}</code>",
+                        f"❓ Unknown command: <code>{command}</code>\n\n"
+                        f"Available: /status /halt /resume /close SYMBOL /stats",
                     )
             except Exception as exc:
                 logger.error(f"Error processing Telegram command /{command}: {exc}")
@@ -431,6 +439,56 @@ class TradingBot:
             f"✅ Closing <code>{symbol}</code> at market price…",
         )
 
+    def _cmd_stats(self, chat_id: int):
+        s = self._trade_db.get_stats()
+        if not s:
+            self._telegram.send_result(chat_id, "❌ Could not retrieve statistics.")
+            return
+
+        total = s["total_closed"]
+        if total == 0:
+            self._telegram.send_result(
+                chat_id,
+                "📈 <b>Trading Statistics</b>\n\nNo closed trades yet.",
+            )
+            return
+
+        wins = s["wins"]
+        losses = total - wins
+        reason_labels = {
+            "stop_loss": "Stop-loss",
+            "take_profit": "Take-profit",
+            "market_close": "Market close",
+            "manual": "Manual",
+        }
+        reason_lines = [
+            f"   • {reason_labels.get(r, r)}: {d['count']} trades ({d['pnl']:+.2f})"
+            for r, d in s["by_reason"].items()
+        ]
+
+        lines = [
+            "📈 <b>Trading Statistics</b>\n",
+            f"<b>All-time</b> ({total} closed trades)",
+            f"  Win/Loss: {wins}W – {losses}L | Win rate: <b>{s['win_rate']:.1f}%</b>",
+            f"  Total P&amp;L: <b>{s['total_pnl']:+.2f}</b>",
+            f"  Avg P&amp;L: {s['avg_pnl']:+.2f} ({s['avg_pnl_pct']:+.2f}%)",
+            f"  Best: {s['best_pnl']:+.2f} | Worst: {s['worst_pnl']:+.2f}",
+            f"  Avg duration: {s['avg_duration_min']:.0f} min",
+        ]
+        if reason_lines:
+            lines.append("\n<b>By exit reason:</b>")
+            lines.extend(reason_lines)
+        lines.append(
+            f"\n<b>Yesterday:</b> {s['today_trades']} trades | P&amp;L {s['today_pnl']:+.2f}"
+        )
+        lines.append(
+            f"<b>Last 7 days:</b> {s['week_trades']} trades | P&amp;L {s['week_pnl']:+.2f}"
+        )
+        if s["open_count"]:
+            lines.append(f"\n📂 Open positions in DB: {s['open_count']}")
+
+        self._telegram.send_result(chat_id, "\n".join(lines))
+
     # ------------------------------------------------------------------
     # Signal detection & entry
     # ------------------------------------------------------------------
@@ -469,6 +527,14 @@ class TradingBot:
             try:
                 signal = self._get_signal(sym, exchange_name)
                 if signal == Signal.NONE:
+                    continue
+
+                # Real-share brokers (e.g. Directa) do not support naked shorts.
+                if signal == Signal.SHORT and self._broker.long_only:
+                    logger.info(
+                        f"[DECISION] {exchange_name}/{sym}: SHORT signal ignored "
+                        "– broker is long-only (real shares, naked short not allowed)"
+                    )
                     continue
 
                 self._enter_position(sym, exchange_name, signal)
@@ -515,7 +581,28 @@ class TradingBot:
             logger.info(
                 f"{prefix}: close={last['close']:.4f} | bars={len(bars)} | evaluating momentum…"
             )
-            return self._strategy.check_signal(symbol, bars)
+            signal = self._strategy.check_signal(symbol, bars)
+
+            # Guard against stale signals from delayed bar data (e.g. yfinance 15-min lag).
+            # Re-fetch the current price and verify it is still on the correct side of
+            # EMA-21.  If the trend has already reversed since the crossover bar, discard.
+            if signal != Signal.NONE:
+                ema21 = float(bars["close"].ewm(span=21, adjust=False).mean().iloc[-1])
+                current = self._broker.get_quote(symbol)
+                if current is not None:
+                    trend_ok = (
+                        (signal == Signal.LONG  and current >= ema21) or
+                        (signal == Signal.SHORT and current <= ema21)
+                    )
+                    if not trend_ok:
+                        logger.info(
+                            f"{prefix}: {signal.value.upper()} signal discarded – "
+                            f"current price {current:.4f} has crossed back past "
+                            f"EMA21 {ema21:.4f} (stale bar data)"
+                        )
+                        return Signal.NONE
+
+            return signal
 
         return Signal.NONE
 
@@ -579,6 +666,19 @@ class TradingBot:
             current_price=price,
         )
         self._positions[symbol] = position
+        position.db_trade_id = self._trade_db.open_trade(
+            symbol=symbol,
+            exchange=exchange,
+            side=side.value,
+            broker=self._config.broker,
+            strategy=self._config.strategy,
+            entry_time=position.entry_time,
+            entry_price=position.entry_price,
+            quantity=position.quantity,
+            stop_loss=position.stop_loss,
+            take_profit=position.take_profit,
+            order_id=position.order_id,
+        )
         self._save_positions()
 
         logger.info(
@@ -630,6 +730,16 @@ class TradingBot:
         if success:
             pos.close(price, reason)
             self._risk.record_realized_pnl(pos.realized_pnl or 0.0)
+            if pos.db_trade_id is not None:
+                self._trade_db.close_trade(
+                    trade_id=pos.db_trade_id,
+                    close_price=pos.close_price,
+                    close_time=pos.close_time,
+                    close_reason=reason,
+                    entry_time=pos.entry_time,
+                    realized_pnl=pos.realized_pnl or 0.0,
+                    cost=pos.entry_price * pos.quantity,
+                )
             self._save_positions()
             self._log_trade("EXIT", pos)
             pnl = pos.realized_pnl or 0.0

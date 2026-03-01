@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.16
+
+- Feature: `/stats` Telegram command. Returns all-time crypto trading statistics
+  from the SQLite database: total closed trades, win/loss count, win rate, total
+  and average P&L (USDT), best/worst trade, average hold duration, breakdown by
+  exit reason (stop-loss / take-profit / manual), and summaries for today and
+  the last 7 days.  The command is available alongside the existing `/status`,
+  `/halt`, `/resume`, and `/close` commands.
+
+## 1.0.15
+
+- Feature: SQLite trade history database (`/data/crypto_trades.db`).
+  Every completed trade is now persisted to a SQLite database in addition to
+  the existing flat `crypto_trades.log`.  Each row records: symbol, side,
+  broker, strategy, entry time/price/quantity, cost (USDT), SL, TP, order id,
+  OCO order list id, close time/price/reason, duration in seconds, realized
+  P&L (USDT), P&L %, and a win flag (1 = profitable).  The `db_trade_id` is
+  stored in `crypto_positions.json` so the row can be updated even after a
+  bot restart.  The database is opened non-critically: any DB error is logged
+  but never interrupts live trading.  `py3-sqlite` added to the Dockerfile.
+
 ## 1.0.14
 
 - Fix: `BrokerBase` abstract method renamed from `has_pending_oco` to `get_oco_result` to match the implementation in `BinanceBroker`, resolving a `TypeError` at startup.

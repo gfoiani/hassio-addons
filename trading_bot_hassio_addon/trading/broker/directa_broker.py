@@ -41,6 +41,7 @@ from typing import List, Optional
 import pandas as pd
 
 from trading.broker.base import BrokerBase
+from trading import data as market_data
 
 logger = logging.getLogger("trading_bot.broker.directa")
 
@@ -83,8 +84,23 @@ class DirectaBroker(BrokerBase):
         self._datafeed_lock   = threading.Lock()
         self._historical_lock = threading.Lock()
 
+        # True while the Darwin port is still worth trying; set to False on
+        # first data failure so subsequent calls skip Darwin and go straight to
+        # Yahoo Finance HTTP (avoids repeated multi-second timeouts per tick).
+        self._darwin_quote_works = True
+        self._darwin_bars_works  = True
+
         # symbol -> (sl_order_id, tp_order_id) – cancelled when closing
         self._bracket_orders: dict[str, tuple[Optional[str], Optional[str]]] = {}
+
+    # ------------------------------------------------------------------
+    # Broker capabilities
+    # ------------------------------------------------------------------
+
+    @property
+    def long_only(self) -> bool:
+        """Directa deals in real shares; naked short selling is not allowed."""
+        return True
 
     # ------------------------------------------------------------------
     # Low-level socket helpers
@@ -173,27 +189,55 @@ class DirectaBroker(BrokerBase):
     # ------------------------------------------------------------------
 
     def connect(self) -> bool:
+        # TRADING port (10002) is required — free-tier MC API.
         try:
-            self._trading_sock    = self._make_socket(self._trading_port)
-            self._datafeed_sock   = self._make_socket(self._datafeed_port)
-            self._historical_sock = self._make_socket(self._historical_port)
+            self._trading_sock = self._make_socket(self._trading_port)
+        except Exception as exc:
+            logger.error(f"Directa connection failed (trading port {self._trading_port}): {exc}")
+            return False
 
-            # Enable BEGIN/END markers for multi-line responses (INFOSTOCKS / ORDERLIST)
+        # DATAFEED port (10001) — optional, requires paid subscription.
+        # If unavailable, quotes fall back to yfinance automatically.
+        try:
+            self._datafeed_sock = self._make_socket(self._datafeed_port)
+        except Exception as exc:
+            logger.info(
+                f"Directa: DATAFEED port {self._datafeed_port} not available "
+                f"({exc}) – will use Yahoo Finance HTTP for real-time quotes."
+            )
+            self._datafeed_sock = None
+
+        # HISTORICAL port (10003) — optional, requires paid subscription.
+        # If unavailable, bar data falls back to yfinance automatically.
+        try:
+            self._historical_sock = self._make_socket(self._historical_port)
+        except Exception as exc:
+            logger.info(
+                f"Directa: HISTORICAL port {self._historical_port} not available "
+                f"({exc}) – will use Yahoo Finance HTTP for historical bars."
+            )
+            self._historical_sock = None
+
+        # Enable BEGIN/END markers for multi-line responses (INFOSTOCKS / ORDERLIST)
+        try:
             with self._trading_lock:
                 self._t_send("FLOWPOINT TRUE")
                 # Drain any banner or acknowledgement from Darwin
                 self._drain(self._trading_sock, wait=0.5)
-
-            logger.info(
-                f"Directa connected to Darwin at {self._host} "
-                f"(trading:{self._trading_port}, datafeed:{self._datafeed_port}, "
-                f"historical:{self._historical_port})"
-            )
-            return True
         except Exception as exc:
-            logger.error(f"Directa connection failed: {exc}")
+            logger.error(f"Directa FLOWPOINT setup failed: {exc}")
             self.disconnect()
             return False
+
+        datafeed_src  = str(self._datafeed_port)   if self._datafeed_sock   else "Yahoo Finance"
+        historical_src = str(self._historical_port) if self._historical_sock else "Yahoo Finance"
+        logger.info(
+            f"Directa connected to Darwin at {self._host} "
+            f"(trading:{self._trading_port}, "
+            f"datafeed:{datafeed_src}, "
+            f"historical:{historical_src})"
+        )
+        return True
 
     def disconnect(self) -> None:
         for sock in (self._trading_sock, self._datafeed_sock, self._historical_sock):
@@ -251,6 +295,31 @@ class DirectaBroker(BrokerBase):
         timeframe_minutes: int = 1,
         limit: int = 100,
     ) -> pd.DataFrame:
+        """Return OHLCV bars for *symbol*.
+
+        Tries the Darwin HISTORICAL socket (port 10003) first.  On the first
+        failure (socket unavailable or no data returned) it permanently switches
+        to yfinance for the lifetime of this connection, avoiding repeated
+        multi-second timeouts on every subsequent tick.
+        """
+        if self._historical_sock is not None and self._darwin_bars_works:
+            df = self._darwin_get_bars(symbol, timeframe_minutes, limit)
+            if not df.empty:
+                return df
+            logger.info(
+                "Directa HISTORICAL returned no data for %s "
+                "– switching to Yahoo Finance HTTP for all bar requests.", symbol
+            )
+            self._darwin_bars_works = False
+
+        return market_data.get_bars(symbol, timeframe_minutes, limit)
+
+    def _darwin_get_bars(
+        self,
+        symbol: str,
+        timeframe_minutes: int = 1,
+        limit: int = 100,
+    ) -> pd.DataFrame:
         """
         CANDLE <ticker> <num_days> <seconds>  →  HISTORICAL socket (10003)
 
@@ -303,7 +372,7 @@ class DirectaBroker(BrokerBase):
                     continue
 
         if not records:
-            logger.warning(f"get_bars: no candles received for {symbol}")
+            logger.warning(f"_darwin_get_bars: no candles received for {symbol}")
             return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
 
         df = (
@@ -314,6 +383,25 @@ class DirectaBroker(BrokerBase):
         return df[["open", "high", "low", "close", "volume"]].tail(limit)
 
     def get_quote(self, symbol: str) -> Optional[float]:
+        """Return the current price for *symbol*.
+
+        Tries the Darwin DATAFEED socket (port 10001) first.  On the first
+        failure (socket unavailable or no price tick received) it permanently
+        switches to yfinance, avoiding repeated 5-second timeouts per tick.
+        """
+        if self._datafeed_sock is not None and self._darwin_quote_works:
+            price = self._darwin_get_quote(symbol)
+            if price is not None:
+                return price
+            logger.info(
+                "Directa DATAFEED returned no price for %s "
+                "– switching to Yahoo Finance HTTP for all quote requests.", symbol
+            )
+            self._darwin_quote_works = False
+
+        return market_data.get_quote(symbol)
+
+    def _darwin_get_quote(self, symbol: str) -> Optional[float]:
         """
         Subscribe to DATAFEED (port 10001) for one price tick, then unsubscribe.
         SUBPRZ response: PRICE;TICKER;HH:MM:SS;PRICE;QTY;...
@@ -337,7 +425,7 @@ class DirectaBroker(BrokerBase):
                             return price
                 self._send(self._datafeed_sock, f"UNS {symbol}")
             except Exception as exc:
-                logger.error(f"get_quote failed for {symbol}: {exc}")
+                logger.error(f"_darwin_get_quote failed for {symbol}: {exc}")
         return None
 
     # ------------------------------------------------------------------
@@ -473,8 +561,16 @@ class DirectaBroker(BrokerBase):
             raw_positions = self._get_positions_raw()
             pos = next((p for p in raw_positions if p["symbol"] == symbol), None)
             if not pos:
-                logger.warning(f"close_position: no open position for {symbol}")
-                return False
+                # Position not found on Darwin: it was already closed by a
+                # server-side SL/TP order (VENSTOP/VENAZ executed while bot
+                # was using delayed yfinance data).  Bracket orders have
+                # already been cancelled above — return True so the caller
+                # marks the position as closed in the bot's internal state.
+                logger.info(
+                    f"close_position: {symbol} not found on Darwin – "
+                    "already closed by server-side SL/TP order"
+                )
+                return True
 
             trading_qty = pos["trading_qty"]
             qty = int(abs(trading_qty))

@@ -27,12 +27,14 @@ from binance.exceptions import BinanceAPIException
 from trading.broker import create_broker
 from trading.broker.binance_broker import BinanceBroker
 from trading.telegram_notifier import TelegramNotifier
+from trading.trade_db import TradeDatabase
 
 logger = logging.getLogger("crypto_bot.bot")
 
 STORAGE_DIR = Path("/data")
 POSITIONS_FILE = STORAGE_DIR / "crypto_positions.json"
 TRADES_LOG_FILE = STORAGE_DIR / "crypto_trades.log"
+TRADES_DB_FILE = STORAGE_DIR / "crypto_trades.db"
 
 _IP_WARNING_COOLDOWN = 3600  # seconds between repeated IP whitelist alerts
 
@@ -77,6 +79,9 @@ class CryptoBot:
         self._current_day: Optional[int] = None
 
         STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+        # SQLite trade history (non-critical: DB errors never abort trading)
+        self._trade_db = TradeDatabase(TRADES_DB_FILE)
 
     # ------------------------------------------------------------------
     # Public API
@@ -323,6 +328,19 @@ class CryptoBot:
             current_price=fill_price,
         )
         self._positions[symbol] = position
+        position.db_trade_id = self._trade_db.open_trade(
+            symbol=symbol,
+            side="long",
+            broker="binance",
+            strategy="momentum",
+            entry_time=position.entry_time,
+            entry_price=position.entry_price,
+            quantity=position.quantity,
+            stop_loss=position.stop_loss,
+            take_profit=position.take_profit,
+            order_id=position.order_id,
+            oco_order_list_id=position.oco_order_list_id,
+        )
         self._save_positions()
         self._log_trade("ENTER", position)
 
@@ -347,6 +365,16 @@ class CryptoBot:
         self._cooldowns[pos.symbol] = datetime.now(timezone.utc)
         pnl = pos.realized_pnl or 0.0
         self._risk.record_realized_pnl(pnl)
+        if pos.db_trade_id is not None:
+            self._trade_db.close_trade(
+                trade_id=pos.db_trade_id,
+                close_price=pos.close_price,
+                close_time=pos.close_time,
+                close_reason=reason,
+                entry_time=pos.entry_time,
+                realized_pnl=pnl,
+                cost=pos.cost_usdt,
+            )
         self._save_positions()
         self._log_trade("EXIT", pos)
         self._notify_exit(pos, price, reason, pnl)
@@ -440,11 +468,13 @@ class CryptoBot:
                     )
                 elif command == "close":
                     self._cmd_close(chat_id, args.upper())
+                elif command == "stats":
+                    self._cmd_stats(chat_id)
                 else:
                     self._telegram.send_result(
                         chat_id,
                         f"❓ Unknown command: <code>/{command}</code>\n\n"
-                        f"Available: /status /halt /resume /close SYMBOL",
+                        f"Available: /status /halt /resume /close SYMBOL /stats",
                     )
             except Exception as exc:
                 logger.error(f"Error processing /{command}: {exc}")
@@ -498,6 +528,55 @@ class CryptoBot:
             chat_id,
             f"✅ Closing <code>{symbol}</code> at market…",
         )
+
+    def _cmd_stats(self, chat_id: int):
+        s = self._trade_db.get_stats()
+        if not s:
+            self._telegram.send_result(chat_id, "❌ Could not retrieve statistics.")
+            return
+
+        total = s["total_closed"]
+        if total == 0:
+            self._telegram.send_result(
+                chat_id,
+                "📈 <b>Crypto Trading Statistics</b>\n\nNo closed trades yet.",
+            )
+            return
+
+        wins = s["wins"]
+        losses = total - wins
+        reason_labels = {
+            "stop_loss": "Stop-loss",
+            "take_profit": "Take-profit",
+            "manual": "Manual",
+        }
+        reason_lines = [
+            f"   • {reason_labels.get(r, r)}: {d['count']} trades ({d['pnl']:+.4f} USDT)"
+            for r, d in s["by_reason"].items()
+        ]
+
+        lines = [
+            "📈 <b>Crypto Trading Statistics</b>\n",
+            f"<b>All-time</b> ({total} closed trades)",
+            f"  Win/Loss: {wins}W – {losses}L | Win rate: <b>{s['win_rate']:.1f}%</b>",
+            f"  Total P&amp;L: <b>{s['total_pnl']:+.4f} USDT</b>",
+            f"  Avg P&amp;L: {s['avg_pnl']:+.4f} USDT ({s['avg_pnl_pct']:+.2f}%)",
+            f"  Best: {s['best_pnl']:+.4f} | Worst: {s['worst_pnl']:+.4f} USDT",
+            f"  Avg duration: {s['avg_duration_min']:.0f} min",
+        ]
+        if reason_lines:
+            lines.append("\n<b>By exit reason:</b>")
+            lines.extend(reason_lines)
+        lines.append(
+            f"\n<b>Yesterday:</b> {s['today_trades']} trades | P&amp;L {s['today_pnl']:+.4f} USDT"
+        )
+        lines.append(
+            f"<b>Last 7 days:</b> {s['week_trades']} trades | P&amp;L {s['week_pnl']:+.4f} USDT"
+        )
+        if s["open_count"]:
+            lines.append(f"\n📂 Open positions in DB: {s['open_count']}")
+
+        self._telegram.send_result(chat_id, "\n".join(lines))
 
     # ------------------------------------------------------------------
     # Persistence

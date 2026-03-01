@@ -1,37 +1,23 @@
 ARG BUILD_FROM=alpine:3.18
 FROM $BUILD_FROM
 
-# TARGETARCH is a Docker BuildKit automatic ARG (set at build time, not runtime).
-# Values: amd64, arm64, arm.  Use it to select the right Java package without
-# relying on uname -m under QEMU emulation.
-#
-# py3-pandas/numpy/lxml  – pre-compiled Alpine packages; avoids slow QEMU compilation of C
-#                          extensions on armv7/armhf (pandas from source can take 20+ min)
-# openjdk11-jre-headless – Java runtime for Directa Darwin Engine (amd64 / aarch64)
-# arm (armv7/armhf)      – Java not available on 32-bit Alpine; Directa broker not supported
-#                          on these platforms; XTB broker works fine without Java
+# py3-pandas / py3-numpy – pre-compiled Alpine packages; avoids QEMU compilation of C
+#                          extensions (pandas from source can take 20+ min under emulation)
+# All pip packages (requests, pytz, websocket-client) are pure Python – no gcc needed.
+# Market data uses direct Yahoo Finance HTTP calls (trading/data.py) instead of yfinance,
+# eliminating the lxml/frozendict/peewee C-extension chain entirely.
+# openjdk11-jre-headless – Java runtime for Directa Darwin Engine
 # curl                   – used by run.sh to download DCL.jar / Engine.jar at first run
 # nc                     – already provided by busybox in Alpine
-ARG TARGETARCH
 RUN \
   apk add --no-cache \
   bash \
   python3 \
   py3-pip \
-  py3-wheel \
   py3-pandas \
   py3-numpy \
-  py3-lxml \
-  gcc \
-  musl-dev \
-  python3-dev \
-  libffi-dev \
-  openssl-dev \
-  curl && \
-  case "${TARGETARCH}" in \
-    arm) echo "INFO: Java not available for 32-bit ARM; Directa broker not supported on this platform" ;; \
-    *)   apk add --no-cache openjdk11-jre-headless ;; \
-  esac
+  openjdk11-jre-headless \
+  curl
 
 RUN mkdir -p /usr/src/app /data
 

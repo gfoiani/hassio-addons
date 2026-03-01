@@ -41,6 +41,11 @@ class Position:
     close_time: Optional[datetime] = None
     close_reason: Optional[str] = None  # "stop_loss" | "take_profit" | "manual"
 
+    # Row id in the SQLite trade history DB.  Set after open_trade() succeeds;
+    # persisted to crypto_positions.json so close_trade() can update the correct
+    # row even after a bot restart.
+    db_trade_id: Optional[int] = None
+
     # ------------------------------------------------------------------
     # Derived properties
     # ------------------------------------------------------------------
@@ -118,6 +123,7 @@ class Position:
             "unrealized_pnl": round(self.unrealized_pnl, 6),
             "unrealized_pnl_pct": round(self.unrealized_pnl_pct, 4),
             "realized_pnl": round(self.realized_pnl, 6) if self.realized_pnl is not None else None,
+            "db_trade_id": self.db_trade_id,
         }
 
     @classmethod
@@ -137,4 +143,5 @@ class Position:
             close_price=data.get("close_price"),
             close_time=datetime.fromisoformat(data["close_time"]) if data.get("close_time") else None,
             close_reason=data.get("close_reason"),
+            db_trade_id=data.get("db_trade_id"),
         )
