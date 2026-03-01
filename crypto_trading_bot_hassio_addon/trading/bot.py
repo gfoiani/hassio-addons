@@ -27,12 +27,14 @@ from binance.exceptions import BinanceAPIException
 from trading.broker import create_broker
 from trading.broker.binance_broker import BinanceBroker
 from trading.telegram_notifier import TelegramNotifier
+from trading.trade_db import TradeDatabase
 
 logger = logging.getLogger("crypto_bot.bot")
 
 STORAGE_DIR = Path("/data")
 POSITIONS_FILE = STORAGE_DIR / "crypto_positions.json"
 TRADES_LOG_FILE = STORAGE_DIR / "crypto_trades.log"
+TRADES_DB_FILE = STORAGE_DIR / "crypto_trades.db"
 
 _IP_WARNING_COOLDOWN = 3600  # seconds between repeated IP whitelist alerts
 
@@ -77,6 +79,9 @@ class CryptoBot:
         self._current_day: Optional[int] = None
 
         STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+        # SQLite trade history (non-critical: DB errors never abort trading)
+        self._trade_db = TradeDatabase(TRADES_DB_FILE)
 
     # ------------------------------------------------------------------
     # Public API
@@ -323,6 +328,19 @@ class CryptoBot:
             current_price=fill_price,
         )
         self._positions[symbol] = position
+        position.db_trade_id = self._trade_db.open_trade(
+            symbol=symbol,
+            side="long",
+            broker="binance",
+            strategy="momentum",
+            entry_time=position.entry_time,
+            entry_price=position.entry_price,
+            quantity=position.quantity,
+            stop_loss=position.stop_loss,
+            take_profit=position.take_profit,
+            order_id=position.order_id,
+            oco_order_list_id=position.oco_order_list_id,
+        )
         self._save_positions()
         self._log_trade("ENTER", position)
 
@@ -347,6 +365,16 @@ class CryptoBot:
         self._cooldowns[pos.symbol] = datetime.now(timezone.utc)
         pnl = pos.realized_pnl or 0.0
         self._risk.record_realized_pnl(pnl)
+        if pos.db_trade_id is not None:
+            self._trade_db.close_trade(
+                trade_id=pos.db_trade_id,
+                close_price=pos.close_price,
+                close_time=pos.close_time,
+                close_reason=reason,
+                entry_time=pos.entry_time,
+                realized_pnl=pnl,
+                cost=pos.cost_usdt,
+            )
         self._save_positions()
         self._log_trade("EXIT", pos)
         self._notify_exit(pos, price, reason, pnl)

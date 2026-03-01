@@ -43,6 +43,7 @@ from trading.strategy import ORBStrategy, MomentumStrategy, Signal, create_strat
 from trading.broker import create_broker
 from trading.broker.base import BrokerBase
 from trading.telegram_notifier import TelegramNotifier
+from trading.trade_db import TradeDatabase
 
 logger = logging.getLogger("trading_bot.bot")
 
@@ -53,6 +54,7 @@ STORAGE_DIR = Path("/data")
 _HEARTBEAT_INTERVAL = 1800  # seconds between "still alive" log lines (30 min)
 POSITIONS_FILE = STORAGE_DIR / "positions.json"
 TRADES_LOG_FILE = STORAGE_DIR / "trades.log"
+TRADES_DB_FILE = STORAGE_DIR / "trades.db"
 
 
 class ExchangeState:
@@ -110,6 +112,9 @@ class TradingBot:
 
         # Ensure storage directory exists
         STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+        # SQLite trade history (non-critical: DB errors never abort trading)
+        self._trade_db = TradeDatabase(TRADES_DB_FILE)
 
     # ------------------------------------------------------------------
     # Public API
@@ -608,6 +613,19 @@ class TradingBot:
             current_price=price,
         )
         self._positions[symbol] = position
+        position.db_trade_id = self._trade_db.open_trade(
+            symbol=symbol,
+            exchange=exchange,
+            side=side.value,
+            broker=self._config.broker,
+            strategy=self._config.strategy,
+            entry_time=position.entry_time,
+            entry_price=position.entry_price,
+            quantity=position.quantity,
+            stop_loss=position.stop_loss,
+            take_profit=position.take_profit,
+            order_id=position.order_id,
+        )
         self._save_positions()
 
         logger.info(
@@ -659,6 +677,16 @@ class TradingBot:
         if success:
             pos.close(price, reason)
             self._risk.record_realized_pnl(pos.realized_pnl or 0.0)
+            if pos.db_trade_id is not None:
+                self._trade_db.close_trade(
+                    trade_id=pos.db_trade_id,
+                    close_price=pos.close_price,
+                    close_time=pos.close_time,
+                    close_reason=reason,
+                    entry_time=pos.entry_time,
+                    realized_pnl=pos.realized_pnl or 0.0,
+                    cost=pos.entry_price * pos.quantity,
+                )
             self._save_positions()
             self._log_trade("EXIT", pos)
             pnl = pos.realized_pnl or 0.0

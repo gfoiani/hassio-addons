@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.31
+
+- Feature: SQLite trade history database (`/data/trades.db`).
+  Every completed trade is now persisted to a SQLite database in addition to
+  the existing flat `trades.log`.  Each row records: symbol, exchange, side,
+  broker, strategy, entry time/price/quantity, cost, SL, TP, order id,
+  close time/price/reason, duration in seconds, realized P&L, P&L %, and a
+  win flag (1 = profitable).  The `db_trade_id` is stored in
+  `positions.json` so the row can be updated even after a bot restart.
+  The database is opened non-critically: any DB error is logged but never
+  interrupts live trading.  `py3-sqlite` added to the Dockerfile.
+
 ## v1.0.30
 
 - Refactor: replace `yfinance` library with direct Yahoo Finance v8 HTTP calls.
