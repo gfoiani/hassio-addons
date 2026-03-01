@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.0
+
+- Feature: Localization support. Configuration panel now displays in English (en) and Italian (it) with detailed descriptions for each parameter. Helps users understand settings like odds thresholds, betting windows, risk management, and Telegram integration.
+
 ## v1.1.0
 
 - Feature: Snipe window — bets are placed only when kick-off is within a
