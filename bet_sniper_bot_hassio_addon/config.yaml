@@ -1,0 +1,49 @@
+name: "Bet Sniper Bot (Betfair)"
+description: "Automatic football 1X2 betting on Betfair with configurable risk management and Telegram notifications"
+version: "1.1.0"
+slug: "bet-sniper-bot"
+image: "ghcr.io/gfoiani/bet-sniper-bot-{arch}"
+init: false
+arch:
+  - aarch64
+  - amd64
+
+apparmor: true
+backup: hot
+stage: stable
+
+options:
+  username: ""
+  password: ""
+  app_key: ""
+  paper_trading: true
+  leagues: "soccer_italy_serie_a,soccer_epl,soccer_spain_la_liga,soccer_germany_bundesliga"
+  min_odds: 1.5
+  max_odds: 2.2
+  stake_per_bet: 5.0
+  max_daily_loss_pct: 5.0
+  reserve_pct: 30.0
+  lookahead_hours: 24
+  check_interval: 1800
+  bet_window_hours: 2.0
+  min_time_to_ko_minutes: 45
+  telegram_relay_url: ""
+  telegram_api_key: ""
+
+schema:
+  username: str
+  password: str
+  app_key: str
+  paper_trading: bool
+  leagues: str
+  min_odds: float
+  max_odds: float
+  stake_per_bet: float
+  max_daily_loss_pct: float
+  reserve_pct: float
+  lookahead_hours: int
+  check_interval: int
+  bet_window_hours: float
+  min_time_to_ko_minutes: int
+  telegram_relay_url: str
+  telegram_api_key: str
