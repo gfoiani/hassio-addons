@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.0.30
+
+- Refactor: replace `yfinance` library with direct Yahoo Finance v8 HTTP calls.
+  `yfinance` depends on `lxml`, `frozendict`, and `peewee` — all C extensions with
+  no prebuilt musl/ARM wheels. Under QEMU emulation on GitHub Actions, compiling
+  these from source took 10–20 minutes and occasionally failed on armv7/armhf.
+  The new `trading/data.py` calls `https://query1.finance.yahoo.com/v8/finance/chart/`
+  directly via `requests` (already a bot dependency), producing identical data with
+  zero C compilation. Dockerfile now contains no compiler toolchain (`gcc`, `musl-dev`,
+  `python3-dev`, `libffi-dev`, `openssl-dev` removed); `py3-lxml` and `py3-wheel` also
+  removed. All remaining pip packages (`requests`, `pytz`, `websocket-client`) are pure
+  Python. Build time for ARM images on GitHub Actions drops from ~15 min to ~1 min.
+
+## v1.0.29
+
+- Fix: `close_position` now returns `True` when the position is no longer found on Darwin.
+  With yfinance market data (~15 min delayed), Darwin can execute a server-side SL/TP order
+  (VENSTOP/VENAZ) well before the bot detects the hit via the delayed price feed. When the
+  bot subsequently calls `close_position`, the position is already gone on Darwin —
+  `_get_positions_raw()` returns empty. Previously this caused `close_position` to return
+  `False`, leaving the position permanently stuck as OPEN in the bot's state and blocking
+  new entries on the same symbol. Now the bot recognises the "not found" case as a clean
+  Darwin-side close, marks the position as closed, and notifies Telegram normally.
+  Bracket orders (the surviving TP limit or SL stop) are cancelled before the INFOSTOCKS
+  check, so no orphan orders are left on Darwin.
+
+- Fix: SHORT signals are now silently ignored when the broker is long-only.
+  Directa deals in real shares (regime amministrato); naked short selling is not supported.
+  Sending `VENMARKET` without holding the shares would result in a `TRADERR` rejection from
+  Darwin and a confusing "Order rejected" log on every SHORT signal. `DirectaBroker` now
+  declares `long_only = True`; `BrokerBase` defines the property (default `False`) for all
+  other brokers. The bot skips SHORT signals when `broker.long_only` is True and logs the
+  reason clearly.
+
+## v1.0.28
+
+- Feature: Momentum strategy stale-signal guard for live trading with delayed data.
+  When bar data comes from yfinance (up to 15 min delayed), an EMA crossover detected in the bars may have already reversed by the time the bot acts on it. After detecting a momentum signal, the bot now fetches the current price (`get_quote`) and verifies it is still on the correct side of EMA-21. If the price has already crossed back past EMA-21, the signal is discarded and logged as stale. This prevents entering trades where the trend has already reversed.
+
+## v1.0.27
+
+- Feature: yfinance market data fallback for Directa broker.
+  - Darwin's DATAFEED (port 10001) and HISTORICAL (port 10003) ports require a paid Directa data subscription. The bot now falls back to yfinance automatically when these ports are unavailable or return no data.
+  - New module `trading/data.py` handles yfinance fetching with in-memory TTL caching (quotes: 20 s, bars: ≥60 s) to avoid hammering the API on every 30-second tick.
+  - Symbol mapping: Directa `.AAPL` → yfinance `AAPL` (NYSE), Directa `BP` → yfinance `BP.L` (LSE).
+  - Darwin-first strategy: on the first data failure, the broker permanently switches to yfinance for the rest of the session, avoiding repeated multi-second timeouts on every subsequent tick.
+  - Connect is now resilient: ports 10001 and 10003 failures no longer prevent the broker from connecting. Only port 10002 (TRADING) is required.
+
 ## v1.0.26
 
 - Fix: "market closed (weekend/holiday)" was logged at DEBUG level (invisible in normal output). Changed to INFO so the bot immediately shows a visible status message on startup when the market is closed.

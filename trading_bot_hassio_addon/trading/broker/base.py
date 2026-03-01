@@ -112,6 +112,20 @@ class BrokerBase(ABC):
         ...
 
     # ------------------------------------------------------------------
+    # Broker capabilities
+    # ------------------------------------------------------------------
+
+    @property
+    def long_only(self) -> bool:
+        """Return True if this broker only supports long positions.
+
+        Real-share brokers (e.g. Directa) do not allow naked short selling.
+        CFD brokers (e.g. XTB) support both LONG and SHORT.
+        Subclasses override this to return True when shorting is unavailable.
+        """
+        return False
+
+    # ------------------------------------------------------------------
     # Position query
     # ------------------------------------------------------------------
 

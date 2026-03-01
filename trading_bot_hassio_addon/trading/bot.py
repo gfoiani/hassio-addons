@@ -471,6 +471,14 @@ class TradingBot:
                 if signal == Signal.NONE:
                     continue
 
+                # Real-share brokers (e.g. Directa) do not support naked shorts.
+                if signal == Signal.SHORT and self._broker.long_only:
+                    logger.info(
+                        f"[DECISION] {exchange_name}/{sym}: SHORT signal ignored "
+                        "– broker is long-only (real shares, naked short not allowed)"
+                    )
+                    continue
+
                 self._enter_position(sym, exchange_name, signal)
 
             except Exception as exc:
@@ -515,7 +523,28 @@ class TradingBot:
             logger.info(
                 f"{prefix}: close={last['close']:.4f} | bars={len(bars)} | evaluating momentum…"
             )
-            return self._strategy.check_signal(symbol, bars)
+            signal = self._strategy.check_signal(symbol, bars)
+
+            # Guard against stale signals from delayed bar data (e.g. yfinance 15-min lag).
+            # Re-fetch the current price and verify it is still on the correct side of
+            # EMA-21.  If the trend has already reversed since the crossover bar, discard.
+            if signal != Signal.NONE:
+                ema21 = float(bars["close"].ewm(span=21, adjust=False).mean().iloc[-1])
+                current = self._broker.get_quote(symbol)
+                if current is not None:
+                    trend_ok = (
+                        (signal == Signal.LONG  and current >= ema21) or
+                        (signal == Signal.SHORT and current <= ema21)
+                    )
+                    if not trend_ok:
+                        logger.info(
+                            f"{prefix}: {signal.value.upper()} signal discarded – "
+                            f"current price {current:.4f} has crossed back past "
+                            f"EMA21 {ema21:.4f} (stale bar data)"
+                        )
+                        return Signal.NONE
+
+            return signal
 
         return Signal.NONE
 

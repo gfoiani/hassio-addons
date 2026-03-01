@@ -1,14 +1,12 @@
 name: "Day Trading Bot"
 description: "Automated day trading bot for NYSE and LSE. Supports XTB (xAPI) and Directa SIM brokers."
-version: "1.0.26"
+version: "1.0.30"
 slug: "day-trading-bot"
 image: "ghcr.io/gfoiani/day-trading-bot-{arch}"
 init: false
 arch:
   - aarch64
   - amd64
-  - armv7
-  - armhf
 
 apparmor: true
 backup: hot
@@ -26,7 +24,7 @@ options:
   #               Taxes withheld automatically by the broker (regime amministrato).
   #               Darwin CommandLine is auto-downloaded and started at each addon
   #               startup; no manual installation required.
-  broker: "xtb"
+  broker: "directa"
 
   # ── Credentials ───────────────────────────────────────────────────────────
   # XTB:     api_key    = numeric userId shown in the XTB client portal
@@ -76,26 +74,26 @@ options:
 
   # ── Risk management ───────────────────────────────────────────────────────
   # Maximum capital to allocate per single position (in account currency, EUR).
-  # Example: "1000" = max €1 000 invested in any one trade.
+  # Example: "200" = max €200 invested in any one trade.
   # Keep this low when starting out (e.g. "200" or "500").
-  max_position_value: "1000"
+  max_position_value: "200"
 
   # Stop loss percentage: position is closed at a loss if price moves against
   # the entry by this percentage.
-  # Example: "2.0" = stop loss at -2% from entry price.
+  # Example: "1.5" = stop loss at -1.5% from entry price.
   # For ORB strategy the actual stop is placed at the opposite ORB boundary.
-  stop_loss_pct: "2.0"
+  stop_loss_pct: "1.5"
 
   # Take profit percentage: position is closed in profit if price moves in
   # favour of entry by this percentage.
-  # Example: "4.0" = take profit at +4% from entry price.
-  # A 2:1 reward-to-risk ratio (e.g. SL 2% / TP 4%) is a common starting point.
-  take_profit_pct: "4.0"
+  # Example: "3.0" = take profit at +3% from entry price.
+  # A 2:1 reward-to-risk ratio (e.g. SL 1.5% / TP 3%) is a common starting point.
+  take_profit_pct: "3.0"
 
   # Maximum daily portfolio loss before the bot stops opening new positions.
   # Calculated as a percentage of total account equity at the start of the day.
-  # Example: "5.0" = halt all new entries if daily drawdown reaches -5%.
-  max_daily_loss_pct: "5.0"
+  # Example: "3.0" = halt all new entries if daily drawdown reaches -3%.
+  max_daily_loss_pct: "3.0"
 
   # ── Strategy ──────────────────────────────────────────────────────────────
   # Trading strategy to apply:
@@ -108,7 +106,7 @@ options:
   #   "momentum" – EMA-9 / EMA-21 crossover + RSI filter.
   #                Enters long when EMA-9 crosses above EMA-21 with RSI 40-65.
   #                Requires at least 25 bars of history.
-  strategy: "orb"
+  strategy: "momentum"
 
   # Duration in minutes of the opening range collection window (ORB only).
   # The high and low of the first orb_minutes after market open define the range.
@@ -122,13 +120,13 @@ options:
 
   # Minutes before market close to automatically close all open positions.
   # Prevents holding positions overnight.
-  # Example: "15" = all positions closed 15 min before close.
-  close_minutes: "15"
+  # Example: "30" = all positions closed 30 min before close.
+  close_minutes: "30"
 
   # How often (in seconds) the main loop runs: checks signals, updates
   # positions, processes Telegram commands.
-  # Example: "30" = loop runs every 30 seconds. Lower = faster but more API calls.
-  check_interval: "30"
+  # Example: "60" = loop runs every 60 seconds. Lower = faster but more API calls.
+  check_interval: "60"
 
   # ── Directa SIM settings ──────────────────────────────────────────────────
   # Only used when broker = "directa". Ignored for XTB.

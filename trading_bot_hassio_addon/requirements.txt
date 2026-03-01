@@ -1,8 +1,12 @@
-# Core (pandas and numpy installed via Alpine packages in Dockerfile — no pip compilation needed)
+# Core
 pytz>=2024.1
 requests>=2.31.0
 
 # XTB broker (xAPI WebSocket)
 websocket-client>=1.8.0
 
-# Directa broker uses only Python stdlib (socket) – no extra dependency
+# Market data for Directa fallback: direct Yahoo Finance HTTP calls.
+# yfinance is NOT used — it pulls in lxml, frozendict, peewee (C extensions)
+# that have no prebuilt musl/ARM wheels and require gcc/libcurl-dev headers,
+# causing compilation failures on armv7/armhf/aarch64 Alpine containers.
+# trading/data.py calls the Yahoo Finance v8 chart API directly via requests.
