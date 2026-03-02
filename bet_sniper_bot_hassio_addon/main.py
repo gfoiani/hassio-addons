@@ -49,6 +49,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--password",            default=env("BETFAIR_PASSWORD", ""))
     p.add_argument("--app-key",             default=env("BETFAIR_APP_KEY", ""))
     p.add_argument("--paper-trading",       default=env("PAPER_TRADING", "true"))
+    p.add_argument("--virtual-balance",     default=env("VIRTUAL_BALANCE", "1000.0"))
     p.add_argument("--leagues",             default=env("LEAGUES",
                    "soccer_italy_serie_a,soccer_epl,soccer_spain_la_liga,soccer_germany_bundesliga"))
     p.add_argument("--min-odds",            default=env("MIN_ODDS", "1.5"))
@@ -84,6 +85,7 @@ def main() -> None:
         password=args.password,
         app_key=args.app_key,
         paper_trading=_bool(args.paper_trading),
+        virtual_balance=float(args.virtual_balance),
         leagues=_list(args.leagues),
         min_odds=float(args.min_odds),
         max_odds=float(args.max_odds),
@@ -101,6 +103,8 @@ def main() -> None:
     logger.info("=" * 60)
     logger.info("  Bet Sniper Bot")
     logger.info("  Mode:         %s", "PAPER" if config.paper_trading else "LIVE")
+    if config.paper_trading:
+        logger.info("  Virtual bal:  %.2f", config.virtual_balance)
     logger.info("  Leagues:      %s", ", ".join(config.leagues))
     logger.info("  Odds range:   %.2f – %.2f", config.min_odds, config.max_odds)
     logger.info("  Stake/bet:    %.2f", config.stake_per_bet)
@@ -112,8 +116,8 @@ def main() -> None:
     logger.info("=" * 60)
 
     # Validate
-    if not config.paper_trading and (not config.username or not config.password or not config.app_key):
-        logger.error("LIVE mode requires username, password, and app_key.")
+    if not config.username or not config.password or not config.app_key:
+        logger.error("Betfair credentials (username, password, app_key) are required.")
         sys.exit(1)
 
     if not config.leagues:

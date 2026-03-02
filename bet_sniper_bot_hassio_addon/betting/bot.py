@@ -24,9 +24,9 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 from betting.bet_db import BetDatabase
 from betting.broker import BetfairBroker, BetEvent, MarketOdds
@@ -76,12 +76,15 @@ class BetSniperBot:
 
         self._telegram.start_keepalive()
 
-        if not self._config.paper_trading:
-            if not self._broker.connect():
-                logger.error("Cannot connect to Betfair. Exiting.")
-                return
-        else:
-            logger.info("PAPER TRADING mode – no real bets will be placed.")
+        if not self._broker.connect():
+            logger.error("Cannot connect to Betfair. Exiting.")
+            return
+
+        if self._config.paper_trading:
+            logger.info(
+                "PAPER TRADING mode – no real bets will be placed. Virtual balance: %.2f",
+                self._config.virtual_balance,
+            )
 
         mode_label = "PAPER" if self._config.paper_trading else "LIVE"
         self._telegram.notify(
@@ -118,7 +121,7 @@ class BetSniperBot:
         """Scan events and place qualifying bets for this cycle."""
         logger.info("=== Starting bet scan cycle ===")
 
-        balance = self._broker.get_balance() if not self._config.paper_trading else 0.0
+        balance = self._config.virtual_balance if self._config.paper_trading else self._broker.get_balance()
         today_spend = self._bet_db.get_today_spend()
 
         logger.info(
@@ -129,7 +132,7 @@ class BetSniperBot:
         events = self._broker.get_upcoming_events(
             self._config.leagues,
             self._config.lookahead_hours,
-        ) if not self._config.paper_trading else self._get_paper_events()
+        )
 
         if not events:
             logger.info("No upcoming events found for configured leagues.")
@@ -147,22 +150,17 @@ class BetSniperBot:
             if not self._is_in_snipe_window(event):
                 continue
 
-            market = self._broker.get_match_odds(event.id) if not self._config.paper_trading else None
+            market = self._broker.get_match_odds(event.id)
 
-            selection = None
-            if market is not None:
-                selection = self._strategy.select_outcome(
-                    market.runners,
-                    self._config.min_odds,
-                    self._config.max_odds,
-                )
-            elif self._config.paper_trading:
-                # In paper mode create a dummy selection for logging purposes
-                selection = Selection(runner_id=0, name="Home (paper)", odds=self._config.min_odds)
-                market_id = f"paper-{event.id}"
-            else:
+            if market is None:
                 logger.debug("No MATCH_ODDS market for %s", event.name)
                 continue
+
+            selection = self._strategy.select_outcome(
+                market.runners,
+                self._config.min_odds,
+                self._config.max_odds,
+            )
 
             if selection is None:
                 logger.debug(
@@ -171,22 +169,22 @@ class BetSniperBot:
                 )
                 continue
 
-            if not self._config.paper_trading:
-                if not self._risk.can_place_bet(
-                    balance=balance,
-                    today_spend=today_spend,
-                    stake=self._config.stake_per_bet,
-                    max_daily_loss_pct=self._config.max_daily_loss_pct,
-                    reserve_pct=self._config.reserve_pct,
-                ):
-                    logger.info("Daily budget limit reached – stopping cycle.")
+            if not self._risk.can_place_bet(
+                balance=balance,
+                today_spend=today_spend,
+                stake=self._config.stake_per_bet,
+                max_daily_loss_pct=self._config.max_daily_loss_pct,
+                reserve_pct=self._config.reserve_pct,
+            ):
+                label = "Virtual daily budget limit" if self._config.paper_trading else "Daily budget limit"
+                logger.info("%s reached – stopping cycle.", label)
+                if not self._config.paper_trading:
                     self._telegram.notify(
                         "⚠️ <b>Daily budget limit reached.</b> No more bets until tomorrow."
                     )
-                    break
+                break
 
-            market_id_final = market.market_id if market else f"paper-{event.id}"
-            self._place_or_paper_bet(event, market_id_final, selection)
+            self._place_or_paper_bet(event, market.market_id, selection)
             today_spend += self._config.stake_per_bet
             bets_this_cycle += 1
 
@@ -319,7 +317,7 @@ class BetSniperBot:
                 self._telegram.send_result(chat_id, f"❌ Error: {exc}")
 
     def _cmd_status(self, chat_id: int) -> None:
-        balance = self._broker.get_balance() if not self._config.paper_trading else 0.0
+        balance = self._config.virtual_balance if self._config.paper_trading else self._broker.get_balance()
         today_spend = self._bet_db.get_today_spend()
         pending = self._bet_db.get_pending_bets()
         mode = "PAPER" if self._config.paper_trading else "LIVE"
@@ -453,28 +451,3 @@ class BetSniperBot:
         except Exception as exc:
             logger.warning("Could not write bet log: %s", exc)
 
-    # ------------------------------------------------------------------
-    # Paper trading helpers
-    # ------------------------------------------------------------------
-
-    def _get_paper_events(self) -> List[BetEvent]:
-        """Return a small set of dummy events for paper-trading mode.
-
-        Kick-off times are spaced inside the snipe window so that
-        ``_is_in_snipe_window`` passes without needing real Betfair data.
-        """
-        now = datetime.now(timezone.utc)
-        # Place dummy kick-offs at the midpoint of the snipe window.
-        # e.g. bet_window_hours=2, min_time_to_ko=30 → midpoint ≈ 75 min from now.
-        min_secs = self._config.min_time_to_ko_minutes * 60
-        max_secs = int(self._config.bet_window_hours * 3600)
-        midpoint_secs = (min_secs + max_secs) // 2
-        return [
-            BetEvent(
-                id=f"paper-event-{i}",
-                name=f"Paper Match {i}",
-                competition="Paper League",
-                kick_off=now + timedelta(seconds=midpoint_secs + i * 300),
-            )
-            for i in range(1, 4)
-        ]

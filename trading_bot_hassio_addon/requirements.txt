@@ -10,3 +10,6 @@ websocket-client>=1.8.0
 # that have no prebuilt musl/ARM wheels and require gcc/libcurl-dev headers,
 # causing compilation failures on armv7/armhf/aarch64 Alpine containers.
 # trading/data.py calls the Yahoo Finance v8 chart API directly via requests.
+
+# TradingView technical analysis (fallback for quotes + volume when Yahoo is unreliable)
+tradingview-ta>=3.3.0

@@ -36,6 +36,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from trading.config import TradingConfig
+from trading import data as market_data
 from trading.exchanges import ExchangeSchedule, get_exchange
 from trading.position import Position, PositionSide, PositionStatus
 from trading.risk import RiskManager
@@ -318,16 +319,18 @@ class TradingBot:
             return
         for sym in symbols:
             try:
-                # Fetch 1-minute bars; use last bar's high/low for live tick
-                bars = self._broker.get_bars(sym, timeframe_minutes=1, limit=5)
+                # Fetch 5-minute bars for a robust ORB range (1-min bars often
+                # have missing volume and single-candle zero-width ranges).
+                bars = self._broker.get_bars(sym, timeframe_minutes=5, limit=10)
                 if bars.empty:
                     continue
-                last = bars.iloc[-1]
-                self._strategy.update_orb(sym, float(last["high"]), float(last["low"]))
+                # Feed ALL bars from the ORB window to capture the true high/low
+                for _, row in bars.iterrows():
+                    self._strategy.update_orb(sym, float(row["high"]), float(row["low"]))
                 orb_high = self._strategy.orb_high(sym)
                 orb_low  = self._strategy.orb_low(sym)
                 logger.info(
-                    f"[ORB] {exchange_name}/{sym}: candle H={last['high']:.4f} L={last['low']:.4f} "
+                    f"[ORB] {exchange_name}/{sym}: {len(bars)} bars fed "
                     f"→ range [{orb_low:.4f}–{orb_high:.4f}]"
                 )
             except Exception as exc:
@@ -551,9 +554,19 @@ class TradingBot:
                 logger.info(f"{prefix}: no price available – skip")
                 return Signal.NONE
 
-            bars = self._broker.get_bars(symbol, timeframe_minutes=1, limit=30)
+            # Use 5-min bars for volume (1-min bars return vol=0 on many LSE stocks)
+            bars = self._broker.get_bars(symbol, timeframe_minutes=5, limit=30)
             avg_vol = float(bars["volume"].mean()) if not bars.empty else 0.0
             last_vol = float(bars.iloc[-1]["volume"]) if not bars.empty else 0.0
+
+            # If Yahoo Finance volume is still zero, try TradingView as fallback
+            if last_vol == 0:
+                tv_vol = market_data.get_tv_volume(symbol)
+                if tv_vol is not None and tv_vol > 0:
+                    last_vol = tv_vol
+                    # Use TradingView volume as a rough average too if Yahoo has nothing
+                    if avg_vol == 0:
+                        avg_vol = tv_vol
 
             orb_high = self._strategy.orb_high(symbol)
             orb_low  = self._strategy.orb_low(symbol)
