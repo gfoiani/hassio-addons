@@ -20,6 +20,7 @@ class BetSniperConfig:
 
     # Trading mode
     paper_trading: bool
+    virtual_balance: float          # Virtual balance used for risk checks in paper mode
 
     # Market configuration
     leagues: List[str]          # e.g. ["soccer_italy_serie_a", "soccer_epl"]

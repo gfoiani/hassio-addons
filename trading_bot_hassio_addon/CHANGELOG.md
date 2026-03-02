@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.0.33
+
+- Fix: ORB collection now uses **5-minute bars** instead of 1-minute. Yahoo Finance
+  returns unreliable data for LSE 1-min candles (volume=0, identical high/low),
+  which produced zero-width ORB ranges and permanently blocked all signals.
+  5-min bars provide meaningful OHLCV data for BP.L, VOD.L, HSBA.L.
+- Fix: ORB collection now feeds **all bars** from the ORB window (via `update_orb`
+  for each candle), instead of only the last candle. This builds a proper
+  high/low range across the entire opening period.
+- Fix: signal detection volume calculation switched from 1-min to 5-min bars,
+  matching the ORB collection timeframe.
+- Feature: **TradingView fallback** (`tradingview-ta`) for quotes and volume.
+  When Yahoo Finance returns no price or zero volume, the bot now queries
+  TradingView's public technical analysis endpoint as a secondary source.
+  Pure Python dependency, no C extensions. Symbol mapping: `.AAPL` → `NASDAQ:AAPL`,
+  `BP` → `LSE:BP`.
+
 ## v1.0.32
 
 - Feature: `/stats` Telegram command. Returns all-time trading statistics from

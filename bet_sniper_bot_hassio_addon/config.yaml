@@ -17,6 +17,7 @@ options:
   password: ""
   app_key: ""
   paper_trading: true
+  virtual_balance: 1000.0
   leagues: "soccer_italy_serie_a,soccer_epl,soccer_spain_la_liga,soccer_germany_bundesliga"
   min_odds: 1.5
   max_odds: 2.2
@@ -35,6 +36,7 @@ schema:
   password: str
   app_key: str
   paper_trading: bool
+  virtual_balance: float
   leagues: str
   min_odds: float
   max_odds: float
