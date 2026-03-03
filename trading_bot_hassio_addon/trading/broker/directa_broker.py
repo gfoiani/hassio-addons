@@ -9,10 +9,12 @@ Download DCL:  https://app1.directatrading.com/dcl/RilascioDCL/DCL.jar
 Launch:        java -jar DCL.jar <userId> <password>
 Test environ:  java -jar DCL.jar <userId> <password> -test
 
-Protocol  – three TCP sockets on localhost (or configurable host):
+Protocol  – single TCP socket on localhost (or configurable host):
   Port 10002  TRADING   – orders, positions, account information
-  Port 10003  HISTORICAL – candle / tick-by-tick data
-  Port 10001  DATAFEED  – real-time price subscriptions
+
+Market data (quotes and bars) is fetched via Yahoo Finance HTTP, not via
+Darwin sockets.  Darwin's DATAFEED (10001) and HISTORICAL (10003) ports
+require a paid Directa data subscription and are never used by this bot.
 
 Commands are UTF-8 strings terminated with '\\n'.
 Responses are semicolon-delimited strings, one per line.
@@ -31,11 +33,8 @@ Notes:
 from __future__ import annotations
 
 import logging
-import math
 import socket
 import threading
-import time
-from datetime import datetime, timezone
 from typing import List, Optional
 
 import pandas as pd
@@ -45,15 +44,14 @@ from trading import data as market_data
 
 logger = logging.getLogger("trading_bot.broker.directa")
 
-# Default Darwin CommandLine TCP ports
+# Darwin CommandLine TCP port – TRADING only (port 10002 is free-tier MC API).
+# Ports 10001 (DATAFEED) and 10003 (HISTORICAL) require a paid Directa data
+# subscription and are never used; all market data comes from Yahoo Finance HTTP.
 _TRADING_PORT    = 10002
-_DATAFEED_PORT   = 10001
-_HISTORICAL_PORT = 10003
 
 _CONNECT_TIMEOUT = 10.0   # seconds – socket connect
 _CMD_TIMEOUT     = 5.0    # seconds – single-line response
 _SILENCE_TIMEOUT = 1.0    # seconds – silence = end of multi-line response
-_HIST_TIMEOUT    = 30.0   # seconds – historical data (may be slow for many bars)
 
 
 class DirectaBroker(BrokerBase):
@@ -68,27 +66,12 @@ class DirectaBroker(BrokerBase):
         self,
         host: str = "127.0.0.1",
         trading_port: int = _TRADING_PORT,
-        datafeed_port: int = _DATAFEED_PORT,
-        historical_port: int = _HISTORICAL_PORT,
     ):
-        self._host            = host
-        self._trading_port    = trading_port
-        self._datafeed_port   = datafeed_port
-        self._historical_port = historical_port
+        self._host         = host
+        self._trading_port = trading_port
 
-        self._trading_sock:    Optional[socket.socket] = None
-        self._datafeed_sock:   Optional[socket.socket] = None
-        self._historical_sock: Optional[socket.socket] = None
-
-        self._trading_lock    = threading.Lock()
-        self._datafeed_lock   = threading.Lock()
-        self._historical_lock = threading.Lock()
-
-        # True while the Darwin port is still worth trying; set to False on
-        # first data failure so subsequent calls skip Darwin and go straight to
-        # Yahoo Finance HTTP (avoids repeated multi-second timeouts per tick).
-        self._darwin_quote_works = True
-        self._darwin_bars_works  = True
+        self._trading_sock: Optional[socket.socket] = None
+        self._trading_lock = threading.Lock()
 
         # symbol -> (sl_order_id, tp_order_id) – cancelled when closing
         self._bracket_orders: dict[str, tuple[Optional[str], Optional[str]]] = {}
@@ -135,8 +118,10 @@ class DirectaBroker(BrokerBase):
                     buf += ch
             except socket.timeout:
                 return buf.decode("utf-8", errors="replace").strip()
-            if line != "H":
-                return line
+            if line == "H" or line.startswith("DARWIN_STATUS;"):
+                logger.debug("Darwin unsolicited message (skipped): %s", line)
+                continue
+            return line
 
     def _drain(self, sock: socket.socket, wait: float = 0.3) -> None:
         """Discard any pending data on *sock* for *wait* seconds."""
@@ -196,28 +181,6 @@ class DirectaBroker(BrokerBase):
             logger.error(f"Directa connection failed (trading port {self._trading_port}): {exc}")
             return False
 
-        # DATAFEED port (10001) — optional, requires paid subscription.
-        # If unavailable, quotes fall back to yfinance automatically.
-        try:
-            self._datafeed_sock = self._make_socket(self._datafeed_port)
-        except Exception as exc:
-            logger.info(
-                f"Directa: DATAFEED port {self._datafeed_port} not available "
-                f"({exc}) – will use Yahoo Finance HTTP for real-time quotes."
-            )
-            self._datafeed_sock = None
-
-        # HISTORICAL port (10003) — optional, requires paid subscription.
-        # If unavailable, bar data falls back to yfinance automatically.
-        try:
-            self._historical_sock = self._make_socket(self._historical_port)
-        except Exception as exc:
-            logger.info(
-                f"Directa: HISTORICAL port {self._historical_port} not available "
-                f"({exc}) – will use Yahoo Finance HTTP for historical bars."
-            )
-            self._historical_sock = None
-
         # Enable BEGIN/END markers for multi-line responses (INFOSTOCKS / ORDERLIST)
         try:
             with self._trading_lock:
@@ -229,26 +192,19 @@ class DirectaBroker(BrokerBase):
             self.disconnect()
             return False
 
-        datafeed_src  = str(self._datafeed_port)   if self._datafeed_sock   else "Yahoo Finance"
-        historical_src = str(self._historical_port) if self._historical_sock else "Yahoo Finance"
         logger.info(
             f"Directa connected to Darwin at {self._host} "
-            f"(trading:{self._trading_port}, "
-            f"datafeed:{datafeed_src}, "
-            f"historical:{historical_src})"
+            f"(trading:{self._trading_port} | market data: Yahoo Finance HTTP)"
         )
         return True
 
     def disconnect(self) -> None:
-        for sock in (self._trading_sock, self._datafeed_sock, self._historical_sock):
-            if sock:
-                try:
-                    sock.close()
-                except Exception:
-                    pass
-        self._trading_sock    = None
-        self._datafeed_sock   = None
-        self._historical_sock = None
+        if self._trading_sock:
+            try:
+                self._trading_sock.close()
+            except Exception:
+                pass
+        self._trading_sock = None
         logger.info("Directa disconnected.")
 
     # ------------------------------------------------------------------
@@ -268,7 +224,7 @@ class DirectaBroker(BrokerBase):
                 return float(parts[3]) + float(parts[5])
         except Exception as exc:
             logger.error(f"get_account_value parse error: {exc} – raw: {line!r}")
-        return 0.0
+        raise RuntimeError(f"get_account_value: invalid response from Darwin: {line!r}")
 
     def get_buying_power(self) -> float:
         """
@@ -286,7 +242,7 @@ class DirectaBroker(BrokerBase):
         return 0.0
 
     # ------------------------------------------------------------------
-    # Market data
+    # Market data  (always Yahoo Finance HTTP – Darwin data ports are paid)
     # ------------------------------------------------------------------
 
     def get_bars(
@@ -295,138 +251,12 @@ class DirectaBroker(BrokerBase):
         timeframe_minutes: int = 1,
         limit: int = 100,
     ) -> pd.DataFrame:
-        """Return OHLCV bars for *symbol*.
-
-        Tries the Darwin HISTORICAL socket (port 10003) first.  On the first
-        failure (socket unavailable or no data returned) it permanently switches
-        to yfinance for the lifetime of this connection, avoiding repeated
-        multi-second timeouts on every subsequent tick.
-        """
-        if self._historical_sock is not None and self._darwin_bars_works:
-            df = self._darwin_get_bars(symbol, timeframe_minutes, limit)
-            if not df.empty:
-                return df
-            logger.info(
-                "Directa HISTORICAL returned no data for %s "
-                "– switching to Yahoo Finance HTTP for all bar requests.", symbol
-            )
-            self._darwin_bars_works = False
-
+        """Return OHLCV bars via Yahoo Finance HTTP."""
         return market_data.get_bars(symbol, timeframe_minutes, limit)
 
-    def _darwin_get_bars(
-        self,
-        symbol: str,
-        timeframe_minutes: int = 1,
-        limit: int = 100,
-    ) -> pd.DataFrame:
-        """
-        CANDLE <ticker> <num_days> <seconds>  →  HISTORICAL socket (10003)
-
-        Response format (each line):
-            CANDLE;TICKER;YYYYMMDD;HH:MM:SS;OPEN;LOW;HIGH;CLOSE;VOLUME
-        Delimited by BEGIN CANDLES / END CANDLES.
-        """
-        seconds = timeframe_minutes * 60
-        # Estimate calendar days needed (assume ~390 trading min/day for NYSE)
-        num_days = max(3, math.ceil(limit * timeframe_minutes / 390) + 2)
-
-        with self._historical_lock:
-            self._send(self._historical_sock, f"CANDLE {symbol} {num_days} {seconds}")
-
-            records: list[dict] = []
-            deadline = time.monotonic() + _HIST_TIMEOUT
-            self._historical_sock.settimeout(_HIST_TIMEOUT)
-
-            while time.monotonic() < deadline:
-                line = self._readline(
-                    self._historical_sock,
-                    timeout=max(1.0, deadline - time.monotonic()),
-                )
-                if not line:
-                    break
-                if line == "END CANDLES":
-                    break
-                if not line.startswith("CANDLE;"):
-                    continue
-
-                # CANDLE;TICKER;YYYYMMDD;HH:MM:SS;OPEN;LOW;HIGH;CLOSE;VOLUME
-                parts = line.split(";")
-                if len(parts) < 9:
-                    continue
-                try:
-                    dt = datetime.strptime(
-                        f"{parts[2]} {parts[3]}", "%Y%m%d %H:%M:%S"
-                    ).replace(tzinfo=timezone.utc)
-                    records.append(
-                        {
-                            "timestamp": dt,
-                            "open":   float(parts[4]),
-                            "low":    float(parts[5]),
-                            "high":   float(parts[6]),
-                            "close":  float(parts[7]),
-                            "volume": float(parts[8]),
-                        }
-                    )
-                except Exception:
-                    continue
-
-        if not records:
-            logger.warning(f"_darwin_get_bars: no candles received for {symbol}")
-            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
-
-        df = (
-            pd.DataFrame(records)
-            .set_index("timestamp")
-            .sort_index()
-        )
-        return df[["open", "high", "low", "close", "volume"]].tail(limit)
-
     def get_quote(self, symbol: str) -> Optional[float]:
-        """Return the current price for *symbol*.
-
-        Tries the Darwin DATAFEED socket (port 10001) first.  On the first
-        failure (socket unavailable or no price tick received) it permanently
-        switches to yfinance, avoiding repeated 5-second timeouts per tick.
-        """
-        if self._datafeed_sock is not None and self._darwin_quote_works:
-            price = self._darwin_get_quote(symbol)
-            if price is not None:
-                return price
-            logger.info(
-                "Directa DATAFEED returned no price for %s "
-                "– switching to Yahoo Finance HTTP for all quote requests.", symbol
-            )
-            self._darwin_quote_works = False
-
+        """Return the current price via Yahoo Finance HTTP."""
         return market_data.get_quote(symbol)
-
-    def _darwin_get_quote(self, symbol: str) -> Optional[float]:
-        """
-        Subscribe to DATAFEED (port 10001) for one price tick, then unsubscribe.
-        SUBPRZ response: PRICE;TICKER;HH:MM:SS;PRICE;QTY;...
-        """
-        with self._datafeed_lock:
-            try:
-                self._send(self._datafeed_sock, f"SUBPRZ {symbol}")
-                deadline = time.monotonic() + _CMD_TIMEOUT
-                while time.monotonic() < deadline:
-                    line = self._readline(
-                        self._datafeed_sock,
-                        timeout=max(0.5, deadline - time.monotonic()),
-                    )
-                    if not line:
-                        break
-                    if line.startswith(f"PRICE;{symbol};"):
-                        parts = line.split(";")
-                        if len(parts) >= 4:
-                            price = float(parts[3])
-                            self._send(self._datafeed_sock, f"UNS {symbol}")
-                            return price
-                self._send(self._datafeed_sock, f"UNS {symbol}")
-            except Exception as exc:
-                logger.error(f"_darwin_get_quote failed for {symbol}: {exc}")
-        return None
 
     # ------------------------------------------------------------------
     # Order execution helpers

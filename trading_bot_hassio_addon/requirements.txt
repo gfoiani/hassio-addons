@@ -2,10 +2,7 @@
 pytz>=2024.1
 requests>=2.31.0
 
-# XTB broker (xAPI WebSocket)
-websocket-client>=1.8.0
-
-# Market data for Directa fallback: direct Yahoo Finance HTTP calls.
+# Market data: direct Yahoo Finance HTTP calls.
 # yfinance is NOT used — it pulls in lxml, frozendict, peewee (C extensions)
 # that have no prebuilt musl/ARM wheels and require gcc/libcurl-dev headers,
 # causing compilation failures on armv7/armhf/aarch64 Alpine containers.

@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.0.34
+
+- **Removal: XTB broker dropped.** Only Directa SIM is supported going forward.
+  `trading/broker/xtb_broker.py` deleted; `websocket-client` removed from
+  `requirements.txt`; `create_broker()` now raises `ValueError` for any broker
+  other than `"directa"`.
+
+- **Fix (critical): false 100% daily-loss halt.** `DirectaBroker.get_account_value()`
+  was returning `0.0` on a malformed or missing Darwin response. With equity = 0,
+  the loss calculation `(start − 0) / start` hit 100 % instantly, halting all
+  trading at the start of the session. `get_account_value()` now raises
+  `RuntimeError` on bad responses; `bot.py` catches the exception and logs a
+  warning instead of silently suppressing it; `risk.py` adds a defensive guard
+  that skips the halt check when `current_portfolio_value ≤ 0`.
+
+- **Fix: volume always 0 → no trades executed.** Two root causes addressed:
+  1. Yahoo Finance returns `volume = 0` on the last (incomplete) bar for LSE
+     stocks. The bot now falls back to the mean of the last 3 non-zero bars when
+     `last_vol == 0`.
+  2. TradingView returned HTTP 404 for `LSE:BP`, `LSE:VOD`, `LSE:HSBA` because
+     Directa ticker names differ from TradingView names (`BP` → `BP.`,
+     `SHEL` → `SHELL`). Added `_LSE_TV_OVERRIDES` mapping in `trading/data.py`.
+
+- **Fix: ORB collection log spam.** The per-tick ORB collection message was logged
+  at `INFO` every 30 s during the 15-minute window (30 identical lines). Downgraded
+  to `DEBUG`. The daily-halt warning is now emitted only once per session
+  (Telegram notification included); previously it repeated every 30 s indefinitely.
+
+- **Refactor: Darwin used for trading only.** Removed all Darwin DATAFEED (10001)
+  and HISTORICAL (10003) socket code. Both ports require a paid Directa data
+  subscription and were causing spurious `DARWIN_STATUS` responses to appear in
+  the trading socket read buffer. All market data (quotes and bars) now comes
+  exclusively from Yahoo Finance HTTP. Darwin (port 10002) is used solely for
+  order placement, position queries, and account information.
+
 ## v1.0.33
 
 - Fix: ORB collection now uses **5-minute bars** instead of 1-minute. Yahoo Finance

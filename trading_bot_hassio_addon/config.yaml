@@ -1,6 +1,6 @@
 name: "Day Trading Bot"
-description: "Automated day trading bot for NYSE and LSE. Supports XTB (xAPI) and Directa SIM brokers."
-version: "1.0.33"
+description: "Automated day trading bot for NYSE and LSE via Directa SIM (Darwin CommandLine)."
+version: "1.0.34"
 slug: "day-trading-bot"
 image: "ghcr.io/gfoiani/day-trading-bot-{arch}"
 init: false
@@ -15,25 +15,16 @@ stage: stable
 
 options:
   # ── Broker ────────────────────────────────────────────────────────────────
-  # Which broker to use for order execution.
-  #
-  #   "xtb"     – XTB xAPI WebSocket. CFD on stocks (NYSE + LSE). Available in
-  #               Italy. Gains must be declared manually (regime dichiarativo).
-  #
-  #   "directa" – Directa SIM. Real shares (NYSE + LSE + Borsa Italiana).
-  #               Taxes withheld automatically by the broker (regime amministrato).
-  #               Darwin CommandLine is auto-downloaded and started at each addon
-  #               startup; no manual installation required.
+  # Directa SIM. Real shares (NYSE + LSE + Borsa Italiana).
+  # Taxes withheld automatically by the broker (regime amministrato).
+  # Darwin CommandLine is auto-downloaded and started at each addon startup.
   broker: "directa"
 
   # ── Credentials ───────────────────────────────────────────────────────────
-  # XTB:     api_key    = numeric userId shown in the XTB client portal
-  #          api_secret = your XTB account password
-  #
-  # Directa: api_key    = Directa userId (account code, e.g. D12345)
-  #          api_secret = Directa account password
-  #          These are passed to Darwin CommandLine on startup. Avoid passwords
-  #          with special shell characters (!, $, ") as they may cause issues.
+  # api_key    = Directa userId (account code, e.g. D12345)
+  # api_secret = Directa account password
+  # These are passed to Darwin CommandLine on startup. Avoid passwords
+  # with special shell characters (!, $, ") as they may cause issues.
   api_key: ""
   api_secret: ""
 
@@ -52,24 +43,12 @@ options:
   exchanges: "NYSE,LSE"
 
   # ── Symbols ───────────────────────────────────────────────────────────────
-  # Comma-separated list of symbols to trade on NYSE.
-  #
-  # XTB format     (suffix .US):  AAPL.US, MSFT.US, NVDA.US, TSLA.US, AMZN.US
-  # Directa format (dot prefix):  .AAPL, .MSFT, .NVDA, .TSLA, .AMZN
-  #
-  # Recommended liquid NYSE stocks for ORB:
-  #   XTB:     AAPL.US, MSFT.US, NVDA.US, TSLA.US, AMZN.US, META.US, AMD.US
-  #   Directa: .AAPL, .MSFT, .NVDA, .TSLA, .AMZN, .META, .AMD
+  # Comma-separated list of symbols to trade on NYSE (Directa dot-prefix format).
+  # Example: .AAPL, .MSFT, .NVDA, .TSLA, .AMZN, .META, .AMD
   symbols_nyse: ""
 
-  # Comma-separated list of symbols to trade on LSE.
-  #
-  # XTB format     (suffix .UK):  BP.UK, SHEL.UK, HSBA.UK, RIO.UK, AZN.UK
-  # Directa format (plain ticker): BP, SHEL, HSBA, RIO, AZN
-  #
-  # Recommended liquid LSE stocks for ORB:
-  #   XTB:     BP.UK, SHEL.UK, HSBA.UK, RIO.UK, AZN.UK, ULVR.UK, GSK.UK
-  #   Directa: BP, SHEL, HSBA, RIO, AZN, ULVR, GSK
+  # Comma-separated list of symbols to trade on LSE (Directa plain ticker format).
+  # Example: BP, SHEL, HSBA, RIO, AZN, ULVR, GSK
   symbols_lse: ""
 
   # ── Risk management ───────────────────────────────────────────────────────
@@ -129,7 +108,6 @@ options:
   check_interval: "60"
 
   # ── Directa SIM settings ──────────────────────────────────────────────────
-  # Only used when broker = "directa". Ignored for XTB.
   #
   # Host where Darwin CommandLine is running.
   #   "127.0.0.1" (default) – Darwin is auto-downloaded and started inside

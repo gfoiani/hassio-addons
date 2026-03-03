@@ -96,8 +96,7 @@ class BrokerBase(ABC):
         Place a market order with attached stop-loss and take-profit levels.
         Return the broker order ID on success, or None on failure.
 
-        NOTE: XTB attaches SL/TP at order creation.
-              Alpaca uses bracket orders.
+        NOTE: Directa simulates bracket orders via separate SL/TP stop/limit orders.
         """
         ...
 
@@ -119,8 +118,7 @@ class BrokerBase(ABC):
     def long_only(self) -> bool:
         """Return True if this broker only supports long positions.
 
-        Real-share brokers (e.g. Directa) do not allow naked short selling.
-        CFD brokers (e.g. XTB) support both LONG and SHORT.
+        Real-share brokers like Directa do not allow naked short selling.
         Subclasses override this to return True when shorting is unavailable.
         """
         return False

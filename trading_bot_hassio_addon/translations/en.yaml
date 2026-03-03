@@ -1,13 +1,13 @@
 configuration:
   broker:
     name: Broker
-    description: "Trading broker to use. Options: xtb (XTB xAPI, Europe/Italy, CFD) or directa (Directa SIM, Italy, regime amministrato)."
+    description: "Trading broker. Only 'directa' (Directa SIM, Italy, regime amministrato) is supported."
   api_key:
-    name: API Key / User ID
-    description: "XTB: numeric account ID. Directa: your Directa user ID."
+    name: User ID
+    description: "Your Directa user ID (e.g. D12345)."
   api_secret:
-    name: API Secret / Password
-    description: "XTB: account password. Directa: your Directa password (used to auto-start Darwin CommandLine)."
+    name: Password
+    description: "Your Directa account password (used to auto-start Darwin CommandLine)."
   paper_trading:
     name: Paper Trading
     description: "true = demo/paper account, no real money. Directa: starts Darwin in -test mode. false = LIVE trading with real funds."
@@ -16,10 +16,10 @@ configuration:
     description: "Comma-separated list of exchanges to monitor. Supported: NYSE, LSE."
   symbols_nyse:
     name: NYSE Symbols
-    description: "Symbols to trade on NYSE. XTB format: AAPL.US, MSFT.US — Directa format: .AAPL, .MSFT"
+    description: "Symbols to trade on NYSE (Directa dot-prefix format). Example: .AAPL, .MSFT, .NVDA"
   symbols_lse:
     name: LSE Symbols
-    description: "Symbols to trade on LSE. XTB format: BP.UK, VOD.UK — Directa format: BP, VOD"
+    description: "Symbols to trade on LSE (Directa plain ticker format). Example: BP, VOD, HSBA"
   directa_host:
     name: Directa Host
     description: "IP address of the machine running Darwin CommandLine. Use 127.0.0.1 (default) if Darwin runs inside the container."
