@@ -6,7 +6,7 @@ Fallback:  TradingView via tradingview-ta (public technical analysis data).
 
 Symbol mapping from Directa format to each provider:
   NYSE  .AAPL  →  Yahoo: AAPL        | TradingView: NASDAQ:AAPL
-  LSE   BP     →  Yahoo: BP.L        | TradingView: LSE:BP
+  LSE   BP     →  Yahoo: BP.L        | TradingView: LSE:BP. (override via _LSE_TV_OVERRIDES)
 """
 
 from __future__ import annotations
@@ -48,7 +48,13 @@ except ImportError:
 _tv_quote_cache: dict[str, tuple[float, float]] = {}
 
 # NYSE symbols that are actually listed on NASDAQ
-_NASDAQ_SYMBOLS = {"AAPL", "MSFT", "NVDA", "GOOG", "GOOGL", "AMZN", "META", "TSLA", "NFLX"}
+_NASDAQ_SYMBOLS = {"AAPL", "MSFT", "NVDA", "GOOG", "GOOGL", "AMZN", "META", "TSLA", "NFLX", "PLTR"}
+
+# Some LSE tickers differ between Directa and TradingView (e.g. BP → BP.)
+_LSE_TV_OVERRIDES: dict[str, str] = {
+    "BP":   "BP.",
+    "SHEL": "SHELL",
+}
 
 
 # ── Symbol conversion ─────────────────────────────────────────────────────────
@@ -75,8 +81,9 @@ def _to_tv_info(directa_symbol: str) -> tuple[str, str, str]:
         if ticker in _NASDAQ_SYMBOLS:
             return ticker, "NASDAQ", "america"
         return ticker, "NYSE", "america"
-    # LSE symbols
-    return directa_symbol, "LSE", "united_kingdom"
+    # LSE symbols – apply overrides for tickers that differ from Directa format
+    tv_ticker = _LSE_TV_OVERRIDES.get(directa_symbol, directa_symbol)
+    return tv_ticker, "LSE", "united_kingdom"
 
 
 # ── Yahoo Finance bars ────────────────────────────────────────────────────────

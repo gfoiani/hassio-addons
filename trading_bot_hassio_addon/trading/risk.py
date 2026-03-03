@@ -51,11 +51,21 @@ class RiskManager:
     # Safety checks
     # ------------------------------------------------------------------
 
+    @property
+    def is_halted(self) -> bool:
+        return self._trading_halted
+
     def should_halt_trading(self, current_portfolio_value: float) -> bool:
         """Return True if the daily loss limit has been breached."""
         if self._trading_halted:
             return True
         if self._initial_portfolio_value is None or self._initial_portfolio_value == 0:
+            return False
+        if current_portfolio_value <= 0:
+            logger.warning(
+                "should_halt_trading: invalid current_portfolio_value=%.2f – skipping check",
+                current_portfolio_value,
+            )
             return False
 
         loss_pct = (self._initial_portfolio_value - current_portfolio_value) / self._initial_portfolio_value
@@ -77,9 +87,7 @@ class RiskManager:
         Calculate integer number of units to buy/sell based on
         max_position_value and current price.
 
-        For XTB CFD stock positions, volume is expressed in lots where
-        1 lot = 1 share (for most stock CFDs). Returns at least 1 if
-        price <= max_position_value.
+        Returns at least 1 if price <= max_position_value.
         """
         if price <= 0:
             return 0

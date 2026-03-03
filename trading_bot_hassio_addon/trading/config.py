@@ -24,8 +24,8 @@ class TradingConfig:
     close_minutes: int
     check_interval: int
 
-    # Directa SIM specific (ignored by XTB)
-    # Darwin CommandLine (DCL.jar) is auto-started by run.sh on the same host.
+    # Host where Darwin CommandLine (DCL.jar) is running.
+    # Default: 127.0.0.1 (Darwin is auto-started by run.sh inside the container).
     # Set to a remote IP only if running Darwin on a separate machine.
     directa_host: str = "127.0.0.1"
 

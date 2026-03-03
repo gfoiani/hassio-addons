@@ -329,7 +329,7 @@ class TradingBot:
                     self._strategy.update_orb(sym, float(row["high"]), float(row["low"]))
                 orb_high = self._strategy.orb_high(sym)
                 orb_low  = self._strategy.orb_low(sym)
-                logger.info(
+                logger.debug(
                     f"[ORB] {exchange_name}/{sym}: {len(bars)} bars fed "
                     f"→ range [{orb_low:.4f}–{orb_high:.4f}]"
                 )
@@ -505,15 +505,17 @@ class TradingBot:
         # Safety: halt if daily loss limit reached
         try:
             equity = self._broker.get_account_value()
+            already_halted = self._risk.is_halted
             if self._risk.should_halt_trading(equity):
-                logger.warning(f"{exchange_name}: trading halted – daily loss limit.")
-                self._telegram.notify(
-                    f"⛔ <b>Trading halted</b> – daily loss limit reached on <b>{exchange_name}</b>.\n"
-                    f"No new positions will be opened today."
-                )
+                if not already_halted:
+                    logger.warning(f"{exchange_name}: trading halted – daily loss limit.")
+                    self._telegram.notify(
+                        f"⛔ <b>Trading halted</b> – daily loss limit reached on <b>{exchange_name}</b>.\n"
+                        f"No new positions will be opened today."
+                    )
                 return
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning(f"{exchange_name}: could not fetch equity for halt check: {exc} – skipping")
 
         logger.info(f"[DECISION] {exchange_name}: scanning {len(symbols)} symbol(s): {symbols}")
         for sym in symbols:
@@ -558,6 +560,13 @@ class TradingBot:
             bars = self._broker.get_bars(symbol, timeframe_minutes=5, limit=30)
             avg_vol = float(bars["volume"].mean()) if not bars.empty else 0.0
             last_vol = float(bars.iloc[-1]["volume"]) if not bars.empty else 0.0
+
+            # If the latest bar has volume=0, use the mean of recent non-zero bars
+            # (LSE bars on Yahoo Finance often report 0 on the incomplete last bar)
+            if last_vol == 0 and not bars.empty:
+                recent_nonzero = bars["volume"].replace(0, float("nan")).dropna().tail(3)
+                if not recent_nonzero.empty:
+                    last_vol = float(recent_nonzero.mean())
 
             # If Yahoo Finance volume is still zero, try TradingView as fallback
             if last_vol == 0:

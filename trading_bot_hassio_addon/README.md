@@ -7,80 +7,34 @@ Designed to run on **Raspberry Pi** (aarch64 / armv7).
 
 ---
 
-## Supported brokers
+## Broker: Directa SIM
 
-| Broker | Markets | Demo | Notes |
-| ------ | ------- | ---- | ----- |
-| **XTB** (default) | NYSE + LSE | ✅ | CFD stocks. Available in Italy. Regime dichiarativo. |
-| **Directa** | NYSE + LSE + Borsa Italiana | ❌ | Real stocks. Regime amministrato. Darwin auto-started. |
+The only supported broker is **Directa SIM** — the ideal choice for Italian retail
+investors who want *regime amministrato* (automatic tax withholding on gains).
+It supports real stocks on NYSE/NASDAQ, LSE and Borsa Italiana.
 
-> **Italian tax note**:
->
-> - **XTB** uses *regime dichiarativo* – you declare gains yourself in the annual tax return (Modello 730 / Redditi PF, quadro RT).
-> - **Directa SIM** uses *regime amministrato* – taxes are withheld automatically by the broker.
-
----
-
-## XTB setup
-
-XTB connects directly to XTB's servers via WebSocket — **no local software required**.
-
-1. Open an XTB account at [xtb.com](https://www.xtb.com) (demo account available for free).
-2. Enter your credentials in the addon settings:
-   - `api_key` → your XTB **userId** (numeric account ID)
-   - `api_secret` → your XTB **password**
-3. Set `paper_trading: "true"` to use the demo account (recommended to start).
-
-### XTB symbol format
-
-| Asset | XTB symbol |
-| ----- | ---------- |
-| Apple (NYSE) | `AAPL.US` |
-| Microsoft (NYSE) | `MSFT.US` |
-| Tesla (NASDAQ) | `TSLA.US` |
-| BP (LSE) | `BP.UK` |
-| Vodafone (LSE) | `VOD.UK` |
-| HSBC (LSE) | `HSBA.UK` |
-| Shell (LSE) | `SHEL.UK` |
-
-Find exact symbol names in the XTB xStation platform under **Market Watch**.
-
-### Example `.env` for XTB
-
-```bash
-BROKER=xtb
-API_KEY=12345678         # your XTB userId
-API_SECRET=your_password
-PAPER_TRADING=true
-EXCHANGES=NYSE,LSE
-SYMBOLS_NYSE=AAPL.US,MSFT.US,NVDA.US
-SYMBOLS_LSE=BP.UK,VOD.UK
-```
-
----
-
-## Directa SIM setup
-
-Directa SIM is the ideal choice for **Italian retail investors** who want *regime amministrato* (automatic tax withholding). It supports real stocks on NYSE/NASDAQ and LSE in addition to Borsa Italiana.
-
-The bot communicates with the **Darwin API** via TCP sockets. **Darwin CommandLine (DCL.jar) is automatically downloaded and started inside the container** on first run — no manual setup required.
+The bot communicates with the **Darwin API** via TCP sockets.
+**Darwin CommandLine (DCL.jar) is automatically downloaded and started inside the
+container** on first run — no manual setup required.
 
 ### What you need
 
 1. Open a Directa SIM account at [directa.it](https://www.directa.it).
-2. Enter your Directa credentials in the addon settings:
-   - `api_key` → your Directa **userId** (account code)
+2. Enter your credentials in the addon settings:
+   - `api_key` → your Directa **userId** (account code, e.g. `D12345`)
    - `api_secret` → your Directa **password**
 
 The addon will:
 
-- Download `Engine.jar` and `gson.jar` automatically from Directa's servers on **every startup** to ensure the latest version is always used.
+- Download `Engine.jar` and `gson.jar` automatically from Directa's servers on
+  **every startup** to ensure the latest version is always used.
 - Launch Darwin as a background process before the bot starts.
 - Stream Darwin output to the addon logs in real-time.
-- Wait up to 60 seconds for Darwin to be ready (port 10002).
+- Wait up to 300 seconds for Darwin to be ready (port 10002).
 - Stop Darwin cleanly when the bot shuts down.
 
-Darwin logs are written to `/data/darwin.log` (truncated at each startup to keep sessions isolated).
+Darwin logs are written to `/data/darwin.log` (truncated at each startup to keep
+sessions isolated).
 
 ### Darwin API ports
 
@@ -95,35 +49,39 @@ Darwin CommandLine opens three TCP sockets on localhost (all internal to the con
 ### Paper / demo trading
 
 Directa SIM does **not** provide a separate paper-trading account via the API.
-Set `paper_trading: "true"` and Darwin CommandLine is started with the `-test` flag, which routes orders to Directa's test environment (no real trades executed).
+Set `paper_trading: true` and Darwin CommandLine is started with the `-test` flag,
+which routes orders to Directa's test environment (no real trades executed).
 
 ### External Darwin (advanced)
 
-If you already have Darwin running on a separate machine, set `directa_host` to that machine's IP address. The addon will then skip the auto-start and connect to Darwin remotely.
+If you already have Darwin running on a separate machine, set `directa_host` to that
+machine's IP address. The addon will then skip the auto-start and connect remotely.
 
 ```bash
 DIRECTA_HOST=192.168.1.100   # skip auto-start, connect to external Darwin
 ```
 
-### Directa symbol format
+### Symbol format
 
-US stocks (NYSE/NASDAQ) require a **`.` prefix**. Italian and LSE stocks use plain tickers.
+US stocks (NYSE/NASDAQ) require a **`.` prefix**. LSE and Italian stocks use plain tickers.
 
-| Asset | Directa symbol | Market |
-| ----- | -------------- | ------ |
-| Apple (NYSE) | `.AAPL` | NYSE |
+| Asset | Symbol | Market |
+| ----- | ------ | ------ |
+| Apple | `.AAPL` | NYSE |
 | Microsoft | `.MSFT` | NASDAQ |
 | Tesla | `.TSLA` | NASDAQ |
-| ENI (Borsa Italiana) | `ENI` | MTA |
-| Enel | `ENEL` | MTA |
-| BP (LSE) | `BP` | LSE |
-| Vodafone (LSE) | `VOD` | LSE |
+| NVIDIA | `.NVDA` | NASDAQ |
+| ENI | `ENI` | Borsa Italiana |
+| BP | `BP` | LSE |
+| Vodafone | `VOD` | LSE |
+| HSBC | `HSBA` | LSE |
 
 Verify exact symbol names in the Darwin platform under **Market Watch**.
 
 ### Bracket order simulation
 
-Directa has no native bracket order type. The broker implementation simulates it by placing three separate orders atomically:
+Directa has no native bracket order type. The broker implementation simulates it by
+placing three separate orders atomically:
 
 1. **Market entry order** (`ACQMARKET` / `VENMARKET`)
 2. **Stop-loss stop order** (`VENSTOP` / `ACQSTOP`)
@@ -131,17 +89,17 @@ Directa has no native bracket order type. The broker implementation simulates it
 
 The stop/limit orders are cancelled automatically when the position is closed by the bot.
 
-### Example `.env` for Directa
+### Example `.env`
 
 ```bash
 BROKER=directa
-API_KEY=your_directa_userId
-API_SECRET=your_directa_password
-PAPER_TRADING=true        # starts Darwin in -test mode
+API_KEY=D12345              # your Directa userId
+API_SECRET=your_password
+PAPER_TRADING=true          # starts Darwin in -test mode
 EXCHANGES=NYSE,LSE
 SYMBOLS_NYSE=.AAPL,.MSFT,.NVDA   # dot prefix for US stocks
-SYMBOLS_LSE=BP,VOD                # plain ticker for LSE
-DIRECTA_HOST=127.0.0.1            # auto-started inside container
+SYMBOLS_LSE=BP,VOD,HSBA          # plain ticker for LSE
+DIRECTA_HOST=127.0.0.1           # auto-started inside container
 ```
 
 ---
@@ -150,16 +108,17 @@ DIRECTA_HOST=127.0.0.1            # auto-started inside container
 
 ### Opening Range Breakout (ORB) – *recommended*
 
-1. **ORB window** (first `orb_minutes` after market open, default 15 min): the bot records the highest high and lowest low of every 1-minute candle.
+1. **ORB window** (first `orb_minutes` after market open, default 15 min): the bot
+   records the highest high and lowest low of every 5-minute candle.
 2. **Signal detection**: once the ORB window closes, the bot monitors for a price breakout:
    - **LONG** if price > ORB high **and** volume > 1.5× average volume
    - **SHORT** if price < ORB low **and** volume > 1.5× average volume
+   (Directa is long-only — SHORT signals are silently ignored.)
 3. **Risk**: stop loss at the opposite ORB boundary; take profit at the configured percentage.
 
 ### Momentum (EMA crossover + RSI)
 
 - **LONG** when EMA-9 crosses above EMA-21 and RSI is 40–65.
-- **SHORT** when EMA-9 crosses below EMA-21 and RSI is 35–60.
 
 ---
 
@@ -183,23 +142,25 @@ The bot automatically:
 
 | Option | Default | Description |
 | ------ | ------- | ----------- |
-| `broker` | `xtb` | `xtb` or `directa` |
-| `api_key` | | XTB: userId · Directa: userId |
-| `api_secret` | | XTB: password · Directa: password |
-| `paper_trading` | `true` | `true` = demo/paper account |
-| `exchanges` | `NYSE,LSE` | Comma-separated list: `NYSE`, `LSE` |
-| `symbols_nyse` | | XTB: `AAPL.US` · Directa: `.AAPL` |
-| `symbols_lse` | | XTB: `BP.UK` · Directa: `BP` |
-| `max_position_value` | `1000` | Max capital per position (account currency) |
-| `stop_loss_pct` | `2.0` | Stop loss % |
-| `take_profit_pct` | `4.0` | Take profit % |
-| `max_daily_loss_pct` | `5.0` | Daily loss limit % |
-| `strategy` | `orb` | `orb` (Opening Range Breakout) or `momentum` |
-| `orb_minutes` | `15` | Opening range collection window (minutes) |
+| `broker` | `directa` | Only `directa` is supported |
+| `api_key` | | Directa userId (e.g. `D12345`) |
+| `api_secret` | | Directa account password |
+| `paper_trading` | `true` | `true` = starts Darwin in `-test` mode (no real orders) |
+| `exchanges` | `NYSE,LSE` | Comma-separated: `NYSE`, `LSE` |
+| `symbols_nyse` | | Dot-prefix format: `.AAPL`, `.MSFT`, `.NVDA` |
+| `symbols_lse` | | Plain ticker: `BP`, `VOD`, `HSBA` |
+| `max_position_value` | `200` | Max capital per position (account currency, EUR) |
+| `stop_loss_pct` | `1.5` | Stop loss % below entry |
+| `take_profit_pct` | `3.0` | Take profit % above entry |
+| `max_daily_loss_pct` | `3.0` | Halt new entries if daily drawdown reaches this % |
+| `strategy` | `momentum` | `orb` (Opening Range Breakout) or `momentum` |
+| `orb_minutes` | `15` | Opening range collection window (minutes, ORB only) |
 | `pre_market_minutes` | `30` | Start monitoring N minutes before market open |
-| `close_minutes` | `15` | Close all positions N minutes before market close |
-| `check_interval` | `30` | Main loop interval (seconds) |
-| `directa_host` | `127.0.0.1` | Directa only: `127.0.0.1` = auto-start, remote IP = external Darwin |
+| `close_minutes` | `30` | Close all positions N minutes before market close |
+| `check_interval` | `60` | Main loop interval (seconds) |
+| `directa_host` | `127.0.0.1` | `127.0.0.1` = auto-start Darwin; remote IP = external Darwin |
+| `telegram_relay_url` | | URL of the Render relay service (leave empty to disable) |
+| `telegram_api_key` | | Shared secret for the Telegram relay (`X-API-Key` header) |
 
 ---
 
@@ -222,26 +183,29 @@ docker logs -f trading-bot
 
 ## Persistent storage
 
-Open positions and trade logs are written to `/data/`, the standard Home Assistant addon persistent directory:
+Open positions and trade logs are written to `/data/`, the standard Home Assistant
+addon persistent directory:
 
 | File | Description |
 | ---- | ----------- |
 | `positions.json` | Current open positions (survives restarts and updates) |
 | `trades.log` | Append-only trade history: one line per ENTER/EXIT event |
+| `trades.db` | SQLite database with full trade history (queryable via `/stats`) |
+| `trading_bot.log` | Full bot log (mirrors stdout) |
+| `darwin.log` | Darwin CommandLine output (truncated each startup) |
 
 ### Viewing the trade log in Home Assistant
 
 The `/data/` directory is accessible via the **File Editor** addon or **Studio Code Server**:
 
 1. Install the **File Editor** addon from the HA addon store.
-2. Navigate to the addon data folder: **`/addon_configs/<slug>/data/trades.log`**
-   (the slug is `day-trading-bot` unless changed in `config.yaml`).
+2. Navigate to: **`/addon_configs/day-trading-bot/data/trades.log`**
 
 Each line in `trades.log` looks like:
 
 ```text
-2024-01-15 09:32:15 UTC | ENTER | NYSE | AAPL.US      | LONG  | qty=5      | entry=185.2300 | SL=181.5254 | TP=192.6392
-2024-01-15 09:45:30 UTC | EXIT  | NYSE | AAPL.US      | LONG  | qty=5      | entry=185.2300 | exit=192.6392  | P&L=+36.81 | reason=take-profit
+2024-01-15 09:32:15 UTC | ENTER | NYSE | .AAPL  | LONG  | qty=5  | entry=185.23 | SL=181.53 | TP=192.64
+2024-01-15 09:45:30 UTC | EXIT  | NYSE | .AAPL  | LONG  | qty=5  | entry=185.23 | exit=192.64 | P&L=+36.81 | reason=take-profit
 ```
 
 ### Viewing in local Docker mode
@@ -256,8 +220,27 @@ docker exec trading-bot tail -f /data/trades.log
 
 ---
 
+## Telegram integration (optional)
+
+Deploy the companion relay service on Render (see `telegram_bot/` folder), then set
+`telegram_relay_url` and `telegram_api_key` in the addon options.
+
+Available Telegram commands:
+
+| Command | Description |
+| ------- | ----------- |
+| `/status` | Current positions and bot state |
+| `/stats` | All-time trading statistics |
+| `/halt` | Stop opening new positions |
+| `/resume` | Resume after manual halt |
+| `/close` | Close all open positions immediately |
+
+---
+
 ## ⚠️ Risk disclaimer
 
 This software is provided for **educational and research purposes only**.
-Automated trading carries significant financial risk. Past performance is not indicative of future results.
-Always start with a **demo account** and never risk capital you cannot afford to lose.
+Automated trading carries significant financial risk. Past performance is not
+indicative of future results.
+Always start with a **demo account** (`paper_trading: true`) and never risk capital
+you cannot afford to lose.

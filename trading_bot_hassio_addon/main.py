@@ -48,7 +48,7 @@ def _parse_args() -> argparse.Namespace:
     def env(key: str, default: str = "") -> str:
         return os.getenv(key, default)
 
-    p.add_argument("--broker",              default=env("BROKER", "xtb"))
+    p.add_argument("--broker",              default=env("BROKER", "directa"))
     p.add_argument("--api-key",             default=env("API_KEY", ""))
     p.add_argument("--api-secret",          default=env("API_SECRET", ""))
     p.add_argument("--paper-trading",       default=env("PAPER_TRADING", "true"))
@@ -65,7 +65,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--close-minutes",       default=env("CLOSE_MINUTES", "15"))
     p.add_argument("--check-interval",      default=env("CHECK_INTERVAL", "30"))
 
-    # Directa SIM specific (ignored for XTB)
+    # Directa SIM: host where DCL.jar is running
     p.add_argument("--directa-host",    default=env("DIRECTA_HOST", "127.0.0.1"))
 
     # Telegram relay service (optional)
